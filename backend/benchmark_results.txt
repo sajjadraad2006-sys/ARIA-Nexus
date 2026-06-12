@@ -1,0 +1,127 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                  ARIA NEXUS — COMPREHENSIVE BENCHMARK REPORT                 ║
+║                        Generated: 2026-06-11 23:17:02                        ║
+║                           Machine: ubuntu (aarch64)                          ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+============================================================
+MODULE IMPORT TIMES
+
+============================================================
+  import config                                 0.0009s                        ✅
+  import flask                                  0.2923s                        ✅
+  import rag_engine                             8.9775s                        ✅
+  import piper_tts                              0.0041s                        ✅
+  import iot_controller                         0.0123s                        ✅
+  import nexus_wakeword                         2.0564s                        ✅
+  import onnxruntime                            0.0000s                        ✅
+  import numpy                                  0.0000s                        ✅
+  import requests                               0.0000s                        ✅
+
+============================================================
+CONFIG LOAD
+
+============================================================
+  Config load                                   0.0000s                        ✅
+    config.FLASK_PORT                           5000                           ✅
+    config.WHISPER_URL                          http://127.0.0.1:8081          ✅
+    config.LLAMA_URL                            http://127.0.0.1:8080          ✅
+    config.HA_URL                               http://127.0.0.1:8123          ✅
+    config.HA_TOKEN                                                            ✅
+    config.RAG_ENABLED                          True                           ✅
+    config.PIPER_DEFAULT_VOICE                  en_GB-semaine-medium           ✅
+    config.PIPER_ARABIC_VOICE                   ar_JO-kareem-medium            ✅
+    config.WAKE_THRESHOLD                       0.5                            ✅
+    config.WAKE_TRIGGER_FRAMES                  2                              ✅
+    config.VAD_CONFIG                           {'startThreshold': 0.03, 'silenceMs': 1500, 'minMs… ✅
+
+============================================================
+FLASK APP FACTORY
+
+============================================================
+  Flask create_app()                            0.0000s                        ✅
+
+============================================================
+FLASK ROUTE RESPONSE TIMES
+
+============================================================
+    GET /api/launcher/health (HTTP 200)         avg=0.0837s  min=0.0638s  max=0.2062s ✅
+    GET /api/config (HTTP 200)                  avg=0.0007s  min=0.0007s  max=0.0012s ✅
+    GET / (redirect) (HTTP 302)                 avg=0.0008s  min=0.0006s  max=0.0013s ✅
+
+============================================================
+RAG ENGINE
+
+============================================================
+  RAG init (embeddings + ChromaDB)              0.2647s                        ✅
+    Available                                   True
+    Query (cold): 'What is ARIA?'               0.2606s                        ✅
+    Query (cached): 'What is ARIA?'             0.000030s                      ✅ (cache hit)
+    Cache speedup                               8564x faster
+    Query (cold): 'delivery policy'             0.0889s                        ✅
+    Query (cached): 'delivery policy'           0.000023s                      ✅ (cache hit)
+    Cache speedup                               3924x faster
+    Query (cold): 'robot navigation'            0.0605s                        ✅
+    Query (cached): 'robot navigation'          0.000023s                      ✅ (cache hit)
+    Cache speedup                               2592x faster
+
+============================================================
+PIPER TTS POOL
+
+============================================================
+  PiperPool init                                0.0000s                        ✅
+    Available                                   True
+    Synth COLD (default-EN)                     2.7196s                        ✅
+    Synth WARM (default-EN, avg of 5)           0.7884s                        ✅
+    Synth COLD (ar_JO-kareem-medium)            36.5029s                       ✅
+    Synth WARM (ar_JO-kareem-medium, avg of 5)  5.1085s                        ✅
+
+============================================================
+WAKE WORD (openWakeWord)
+
+============================================================
+  Model file                                    210.0 KB                       ✅
+  ONNX load (onnxruntime)                       0.0282s                        ✅
+    ONNX inference (100 runs)                   avg=0.06ms  min=0.05ms  max=0.31ms ✅
+  openWakeWord load                             0.2740s                        ✅
+
+============================================================
+ARABIC TEXT DETECTION
+
+============================================================
+    'مرحبا كيف حالك…'                           → True (expected True)         ✅
+    'Hello how are you…'                        → False (expected False)       ✅
+    'شغّل الإضاءة في غرفة الجلوس…'              → True (expected True)         ✅
+    'Turn on the lights…'                       → False (expected False)       ✅
+    'مزيج من both languages يعني…'              → True (expected True)         ✅
+    Speed (1000 × 5 calls)                      total=0.0183s  avg/batch=0.018ms ✅
+
+============================================================
+IoT CONTROLLER
+
+============================================================
+  HAController init                             0.0004s                        ✅
+    HA availability check                       0.0091s                        ⚠️ not reachable
+
+============================================================
+NEXUS WAKEWORD LISTENER
+
+============================================================
+  Listener init                                 0.0004s                        ✅
+    available() [local mic]                     True
+    available_feed() [stream]                   True
+    feed() latency (50 frames)                  avg=0.84ms  min=0.02ms  max=40.70ms ✅
+
+============================================================
+TOTAL BENCHMARK TIME
+
+============================================================
+  Total                                         87.16s
+
+============================================================
+SUMMARY
+============================================================
+  ✅ Passed:   47
+  ❌ Failed:   0
+  ⚠️  Warning:  1

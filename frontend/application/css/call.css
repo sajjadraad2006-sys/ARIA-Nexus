@@ -1,0 +1,239 @@
+/* =====================================================================
+   ARIA NEXUS — call.css
+   Full-screen “Assistant Call” overlay: big waveform + mute + end.
+   Opened by the wake word (‘aria’) or AssistantCall.open().
+   ===================================================================== */
+
+#assistant-call {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .35s ease, visibility .35s ease;
+  background:
+    radial-gradient(120% 120% at 50% 18%, rgba(20, 28, 44, .55), rgba(6, 8, 16, .94) 70%),
+    rgba(4, 6, 12, .96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+#assistant-call.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.acall-inner {
+  width: min(680px, 92vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+  padding: 40px 28px;
+  text-align: center;
+}
+
+/* title */
+.acall-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .72);
+  font-weight: 600;
+}
+.acall-title .acall-led {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--nexus-accent-1, #38bdf8);
+  box-shadow: 0 0 12px var(--nexus-accent-1, #38bdf8);
+  animation: acall-pulse 1.6s ease-in-out infinite;
+}
+@keyframes acall-pulse { 0%,100%{opacity:.4;} 50%{opacity:1;} }
+
+/* status line */
+.acall-status {
+  font-size: 19px;
+  font-weight: 600;
+  color: #fff;
+  min-height: 24px;
+}
+
+/* the big waveform */
+.acall-viz {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  height: 220px;
+  width: 100%;
+}
+.acall-bar {
+  display: block;
+  width: 34px;
+  height: 200px;
+  border-radius: 22px;
+  transform: scaleY(.12);
+  transform-origin: center center;
+  background: linear-gradient(180deg, #ffffff 0%, #dbe7ff 60%, #a9c4ff 100%);
+  box-shadow: 0 0 26px rgba(180, 210, 255, .45);
+  will-change: transform;
+}
+@media (max-width: 520px) {
+  .acall-bar { width: 22px; gap: 10px; }
+  .acall-viz { gap: 10px; height: 170px; }
+}
+
+/* tint the waveform by state */
+#assistant-call[data-mode="listening"] .acall-bar {
+  background: linear-gradient(180deg, #eafff3 0%, #8ef0c0 60%, #34d399 100%);
+  box-shadow: 0 0 26px rgba(52, 211, 153, .5);
+}
+#assistant-call[data-mode="thinking"] .acall-bar {
+  background: linear-gradient(180deg, #fff7e6 0%, #ffd98a 60%, #f59e0b 100%);
+  box-shadow: 0 0 26px rgba(245, 158, 11, .45);
+}
+#assistant-call[data-mode="error"] .acall-bar {
+  background: linear-gradient(180deg, #ffe6e6 0%, #ff9a9a 60%, #ef4444 100%);
+  box-shadow: 0 0 26px rgba(239, 68, 68, .5);
+}
+
+/* live caption */
+.acall-caption {
+  min-height: 48px;
+  max-width: 560px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, .9);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.acall-cap-who {
+  font-size: 11px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--nexus-accent-1, #7dd3fc);
+  font-weight: 700;
+}
+.acall-cap-text { color: rgba(255,255,255,.92); }
+
+/* controls */
+.acall-controls {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-top: 8px;
+}
+.acall-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform .12s ease, background .2s ease, box-shadow .2s ease;
+}
+.acall-btn:active { transform: scale(.94); }
+
+/* round mute button */
+.acall-mute {
+  width: 68px; height: 68px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .22);
+  font-size: 26px;
+}
+.acall-mute:hover { background: rgba(255, 255, 255, .2); }
+.acall-mute .acall-ic-on  { display: inline; }
+.acall-mute .acall-ic-off { display: none; }
+.acall-mute.muted {
+  background: rgba(239, 68, 68, .22);
+  border-color: rgba(239, 68, 68, .5);
+  color: #fecaca;
+}
+.acall-mute.muted .acall-ic-on  { display: none; }
+.acall-mute.muted .acall-ic-off { display: inline; }
+
+/* end-call button */
+.acall-end {
+  height: 56px;
+  padding: 0 30px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  box-shadow: 0 10px 28px rgba(239, 68, 68, .4);
+}
+.acall-end:hover { box-shadow: 0 12px 34px rgba(239, 68, 68, .55); }
+
+/* reduce-motion respect (shares the body class used by settings.js) */
+.nx-reduce-motion .acall-title .acall-led { animation: none; }
+
+/* ---- shared small controls used by the settings drawer ---- */
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--nx-text, #e6edf6);
+}
+.set-select {
+  flex: 0 0 auto;
+  max-width: 58%;
+  background: rgba(255, 255, 255, .08);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 13px;
+}
+.set-select option { color: #111; }
+
+/* ---- tiny “mic armed” dot (wake word listening hint) ----
+   Deliberately small & unobtrusive: NO waveform, NO call screen until the
+   wake word “aria” is heard. Sits in the bottom-left corner. ---- */
+#wake-indicator {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 3500;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: rgba(120, 130, 150, .55);
+  box-shadow: 0 0 0 0 rgba(56, 189, 248, .5);
+  transition: background .25s ease, box-shadow .25s ease, transform .15s ease;
+}
+#wake-indicator:hover { transform: scale(1.15); }
+#wake-indicator.off    { background: rgba(120, 130, 150, .45); }
+#wake-indicator.armed  {
+  background: var(--nexus-accent-1, #38bdf8);
+  animation: wake-dot-pulse 2s ease-in-out infinite;
+}
+#wake-indicator.error  { background: #f59e0b; }
+#wake-indicator.hit    {
+  background: #34d399;
+  transform: scale(1.4);
+  box-shadow: 0 0 0 8px rgba(52, 211, 153, .25);
+}
+@keyframes wake-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, .45); }
+  50%      { box-shadow: 0 0 0 7px rgba(56, 189, 248, 0); }
+}
+.nx-reduce-motion #wake-indicator.armed { animation: none; }

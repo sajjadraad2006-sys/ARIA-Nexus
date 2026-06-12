@@ -1,0 +1,69 @@
+/* =====================================================================
+   ARIA NEXUS — rtl.css
+   Right-to-left adjustments, applied only when <html dir="rtl"> (Arabic).
+   The base layout uses fixed/absolute positioning, so we mirror the
+   horizontal anchors here instead of relying on logical properties.
+   ===================================================================== */
+
+/* Sidebar moves to the right edge; its divider flips to the left side. */
+[dir="rtl"] .nexus-sidebar {
+  left: auto;
+  right: 0;
+  border-right: none;
+  border-left: 1px solid var(--nexus-border);
+}
+
+/* Main content sits to the left of the (now right-hand) sidebar. */
+[dir="rtl"] .nexus-main {
+  left: 0;
+  right: var(--nexus-sidebar-w);
+}
+
+/* Settings drawer slides in from the left in RTL. */
+[dir="rtl"] .settings-drawer {
+  right: auto;
+  left: 0;
+  border-left: none;
+  border-right: 1px solid var(--nexus-border);
+  transform: translateX(-104%);
+}
+[dir="rtl"] .settings-drawer.open { transform: translateX(0); }
+
+/* Negative-margin trick on the sticky tab bar must mirror too. */
+[dir="rtl"] .set-tabs { margin: -4px -4px 4px; }
+
+/* Corner widgets: listening dot + toasts hug the opposite corner. */
+[dir="rtl"] #wake-indicator { left: auto; right: 16px; }
+[dir="rtl"] #toast-container {
+  right: auto;
+  left: 22px;
+  align-items: flex-start;
+}
+[dir="rtl"] .toast { border-left: none; border-right: 3px solid var(--nexus-accent-1); }
+
+/* Text alignment for the bits that are free-flowing prose. */
+[dir="rtl"] .page-subtitle,
+[dir="rtl"] .set-hint,
+[dir="rtl"] .set-status,
+[dir="rtl"] .set-label { text-align: right; }
+
+/* Keep numeric value chips (e.g. “0.60”) reading left-to-right. */
+[dir="rtl"] .set-val,
+[dir="rtl"] #header-clock,
+[dir="rtl"] .badge { direction: ltr; unicode-bidi: isolate; }
+
+/* Chat bubbles: user messages mirror to the other side. */
+[dir="rtl"] .chat-bubble.user { align-self: flex-start; flex-direction: row; }
+
+/* List indentation flips. */
+[dir="rtl"] .nxmd ul, [dir="rtl"] .nxmd ol { padding-left: 0; padding-right: 1.4em; }
+[dir="rtl"] .nxmd blockquote {
+  border-left: none;
+  border-right: 3px solid var(--nexus-accent-2);
+}
+
+/* Prefer a font stack with strong Arabic coverage when in Arabic mode. */
+[dir="rtl"] body {
+  font-family: "Segoe UI", "Tahoma", "Noto Sans Arabic", "Geeza Pro",
+               var(--nexus-font-body, system-ui), sans-serif;
+}

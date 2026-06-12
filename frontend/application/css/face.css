@@ -1,0 +1,263 @@
+/* =====================================================================
+   ARIA NEXUS — face.css
+   Cute, minimal glowing robot EYES (no literal robot head).
+   Color + glow shift per state via the --eye custom property.
+   ===================================================================== */
+
+#page-face { padding: 8px 0 40px; }
+
+.face-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+
+/* ---- Stage: soft aura behind the eyes ---- */
+.face-stage {
+  --eye: #38e0ff;            /* idle default: cute cyan */
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* NO BOX — eyes float free on the page, not tied to any shape */
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  overflow: visible;
+  transition: none;
+}
+/* breathing aura halo behind the eyes (soft glow on the page, not a box) */
+.face-stage::after {
+  content: "";
+  position: absolute;
+  width: 86%;
+  height: 105%;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--eye) 26%, transparent), transparent 62%);
+  filter: blur(20px);
+  opacity: 0.82;
+  transition: opacity 0.4s ease, background 0.5s ease;
+  animation: face-aura 4.5s ease-in-out infinite;
+  pointer-events: none;
+}
+/* floor reflection removed — eyes are free, no platform/shape beneath them */
+@keyframes face-aura {
+  0%, 100% { opacity: 0.58; transform: scale(0.98); }
+  50%      { opacity: 0.82; transform: scale(1.02); }
+}
+.nx-reduce-motion .face-stage::after { animation: none; }
+
+/* ---- The eyes ---- */
+.robo-eyes {
+  position: relative;
+  z-index: 1;
+  width: 84%;
+  max-width: 460px;
+  height: auto;
+  overflow: visible;
+}
+.rf-eye {
+  fill: var(--eye);
+  filter: drop-shadow(0 0 16px color-mix(in srgb, var(--eye) 80%, transparent))
+          drop-shadow(0 0 38px color-mix(in srgb, var(--eye) 55%, transparent))
+          drop-shadow(0 0 70px color-mix(in srgb, var(--eye) 30%, transparent));
+  transition: fill 0.4s ease;
+}
+.rf-shine {
+  fill: #ffffff;
+  opacity: 0.9;
+}
+.rf-shine-sm { opacity: 0.55; }
+
+/* ---- Per-state colors ---- */
+.face-stage[data-state="idle"]      { --eye: #38e0ff; }
+.face-stage[data-state="listening"] { --eye: #36e07a; }
+.face-stage[data-state="thinking"]  { --eye: #f5c451; }
+.face-stage[data-state="speaking"]  { --eye: #9b8bff; }
+.face-stage[data-state="error"]     { --eye: #ff6a6a; }
+
+.face-stage[data-state="listening"]::after { opacity: 0.95; }
+.face-stage[data-state="speaking"]::after  { opacity: 1; }
+.face-stage[data-state="error"]::after      { opacity: 0.85; }
+
+/* ---- State pill ---- */
+.face-state-pill {
+  z-index: 2;
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 14px;
+  border-radius: 999px;
+  color: var(--eye);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid color-mix(in srgb, var(--eye) 40%, transparent);
+  backdrop-filter: blur(6px);
+  transition: color 0.4s ease, border-color 0.4s ease;
+}
+
+/* ---- Controls ---- */
+.face-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 560px;
+}
+.face-talk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.02rem;
+  font-weight: 600;
+  padding: 14px 30px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  color: #04121f;
+  background: linear-gradient(180deg, #7fe3ff, #38c6ff);
+  box-shadow: 0 8px 26px rgba(56, 198, 255, 0.35);
+  transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.3s ease;
+}
+.face-talk-btn:hover { transform: translateY(-1px); }
+.face-talk-btn:active { transform: translateY(1px); }
+.face-talk-btn:disabled { opacity: 0.55; cursor: default; }
+.face-talk-btn.recording {
+  color: #fff;
+  background: linear-gradient(180deg, #ff7d7d, #ef4a4a);
+  box-shadow: 0 0 0 0 rgba(239, 74, 74, 0.5);
+  animation: face-rec-pulse 1.3s ease-out infinite;
+}
+@keyframes face-rec-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(239, 74, 74, 0.5); }
+  70%  { box-shadow: 0 0 0 16px rgba(239, 74, 74, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 74, 74, 0); }
+}
+
+.face-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  font-size: 0.86rem;
+  color: var(--nexus-text-dim, #9fb2d6);
+}
+.face-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+.face-options input[type="checkbox"]:disabled { cursor: not-allowed; }
+.face-clear-btn {
+  background: none;
+  border: none;
+  color: var(--nexus-text-dim, #9fb2d6);
+  cursor: pointer;
+  font-size: 0.86rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.face-clear-btn:hover { color: #fff; }
+
+/* ---- Wake-word badge ---- */
+.face-wake-badge {
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--nexus-text-dim, #9fb2d6);
+  background: rgba(255, 255, 255, 0.03);
+}
+.face-wake-badge.on {
+  color: #36e07a;
+  border-color: rgba(54, 224, 122, 0.5);
+  background: rgba(54, 224, 122, 0.08);
+}
+.face-wake-badge.hit {
+  color: #04121f;
+  background: #36e07a;
+  border-color: #36e07a;
+}
+.face-wake-badge.off {
+  color: #ff8b8b;
+  border-color: rgba(255, 106, 106, 0.45);
+  background: rgba(255, 106, 106, 0.07);
+}
+
+/* ---- Hint + transcript ---- */
+.face-hint {
+  max-width: 460px;
+  text-align: center;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--nexus-text-dim, #8da0c4);
+}
+.face-transcript {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+.face-empty {
+  text-align: center;
+  color: var(--nexus-text-dim, #7c8db0);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+.face-line {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.face-line.user { border-left: 3px solid #38c6ff; }
+.face-line.aria { border-left: 3px solid #9b8bff; }
+.face-line-who {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--nexus-text-dim, #8da0c4);
+}
+.face-line-text {
+  font-size: 0.94rem;
+  line-height: 1.55;
+  color: var(--nexus-text, #e6edf8);
+  word-break: break-word;
+}
+
+/* ===== Turn-22: barge-in Stop button on the face page ===== */
+.face-stop-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 8px auto 0; padding: 8px 18px;
+  border-radius: 999px; cursor: pointer;
+  font-size: 0.92rem; font-weight: 600;
+  color: #ff8a8a;
+  background: rgba(255, 106, 106, 0.12);
+  border: 1px solid rgba(255, 106, 106, 0.45);
+  transition: transform 0.12s ease, background 0.15s ease;
+  animation: faceStopPulse 1.4s ease-in-out infinite;
+}
+.face-stop-btn:hover { background: rgba(255, 106, 106, 0.2); transform: translateY(-1px); }
+.face-stop-btn:active { transform: translateY(1px); }
+@keyframes faceStopPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 106, 106, 0.25); }
+  50% { box-shadow: 0 0 0 6px rgba(255, 106, 106, 0); }
+}

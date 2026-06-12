@@ -1,0 +1,22 @@
+[
+  {
+    "id": "020c8d8a56804f6abdc685f75381b3bc",
+    "name": "Led",
+    "device_type": "switch",
+    "ip": "",
+    "room": "",
+    "virtual": true,
+    "state": false,
+    "channels": []
+  },
+  {
+    "id": "bd7e730aed2b477482d636ee007d2f75",
+    "name": "Light",
+    "device_type": "switch",
+    "ip": "",
+    "room": "",
+    "virtual": true,
+    "state": false,
+    "channels": []
+  }
+]

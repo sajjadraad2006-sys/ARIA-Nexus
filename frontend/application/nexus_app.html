@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#060d1f">
+  <title>ARIA Nexus — Command Center</title>
+
+  <!-- Prevent white flash -->
+  <style>html,body{background:#060d1f;margin:0}</style>
+
+  <!-- Fonts: 100% local. No CDN / no network. Uses installed system
+       fonts with graceful fallbacks (see --nexus-font-* in nexus.css). -->
+
+  <!-- Bundled fonts (local, offline) -->
+  <link rel="stylesheet" href="css/fonts.css">
+
+  <!-- Design system -->
+  <link rel="stylesheet" href="css/nexus.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <link rel="stylesheet" href="css/textures.css">
+  <link rel="stylesheet" href="css/settings.css">
+  <link rel="stylesheet" href="css/face.css">
+  <link rel="stylesheet" href="css/call.css">
+  <link rel="stylesheet" href="css/rtl.css">
+  <link rel="stylesheet" href="css/perf.css">
+  <link rel="stylesheet" href="css/polish.css">
+</head>
+
+<body>
+
+  <!-- Ambient texture layers (purely decorative, click-through) -->
+  <div class="nx-depth" aria-hidden="true"></div>
+  <div class="nx-grid" aria-hidden="true"></div>
+  <div class="nx-grain" aria-hidden="true"></div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!--  SPLASH SCREEN                                         -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="splash-screen">
+    <canvas id="particles-canvas"></canvas>
+    <div class="splash-content">
+
+      <!-- Rotating gradient ring with ARIA text inside -->
+      <div class="aria-logo-ring">
+        <span class="logo-text-main">ARIA</span>
+        <span class="logo-text-sub">NEXUS</span>
+      </div>
+
+      <p class="splash-tagline" data-i18n="splash.tagline">Unified Command Center</p>
+
+      <!-- Progress bar (CSS 3s animation) -->
+      <div class="splash-progress-track">
+        <div class="splash-progress-fill"></div>
+      </div>
+
+      <!-- Enter button (appears at 1.8s via animation-delay) -->
+      <button id="btn-enter" aria-label="Enter fullscreen command center">
+        <span class="nx-i" data-icon="power" data-icon-size="18"></span> <span data-i18n="splash.enter">ENTER FULL EXPERIENCE</span>
+      </button>
+      <p class="splash-hint" data-i18n="splash.hint">Click to activate fullscreen mode</p>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!--  MAIN DASHBOARD (hidden until splash exits)            -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="dashboard" style="display:none">
+
+    <!-- TOP HEADER -->
+    <header class="nexus-header" role="banner">
+      <div class="header-left">
+        <div class="header-logo">
+          <span class="header-logo-text">ARIA</span>
+          <span class="header-nexus-badge">NEXUS</span>
+        </div>
+        <span class="header-version">v1.0</span>
+      </div>
+      <div class="header-center">
+        <span id="header-clock" aria-live="polite">00:00:00</span>
+      </div>
+      <div class="header-right">
+        <span id="connection-indicator" class="status-dot unknown"
+              aria-label="Connection status"></span>
+        <button id="btn-settings" class="btn-icon"
+                aria-label="Customize interface"><span class="nx-i" data-icon="gear" data-icon-size="20"></span></button>
+        <button id="btn-fullscreen-toggle" class="btn-icon"
+                aria-label="Toggle fullscreen"><span class="nx-i" data-icon="fullscreen" data-icon-size="20"></span></button>
+      </div>
+    </header>
+
+    <!-- SIDEBAR NAV -->
+    <nav class="nexus-sidebar" role="navigation" aria-label="Module navigation">
+      <button class="nav-item active" data-page="launcher"
+              aria-label="Go to launcher">
+        <span class="nav-icon" data-icon="grid"></span>
+        <span class="nav-label" data-i18n="nav.launcher">Launcher</span>
+      </button>
+      <button class="nav-item" data-page="chatbot" aria-label="Open ARIA Chatbot">
+        <span class="nav-icon" data-icon="chatbot"></span>
+        <span class="nav-label" data-i18n="nav.chatbot">Chatbot</span>
+      </button>
+      <button class="nav-item" data-page="face" aria-label="Open Robot Face">
+        <span class="nav-icon" data-icon="robot"></span>
+        <span class="nav-label" data-i18n="nav.face">Robot Face</span>
+      </button>
+      <button class="nav-item" data-page="iot" aria-label="Open IoT Control">
+        <span class="nav-icon" data-icon="home"></span>
+        <span class="nav-label" data-i18n="nav.iot">IoT</span>
+      </button>
+      <button class="nav-item" data-page="assistant" aria-label="Open Assistant">
+        <span class="nav-icon" data-icon="assistant"></span>
+        <span class="nav-label" data-i18n="nav.assistant">Assistant</span>
+      </button>
+      <button class="nav-item" data-page="monitor" aria-label="Open System Monitor">
+        <span class="nav-icon" data-icon="monitor"></span>
+        <span class="nav-label" data-i18n="nav.monitor">Monitor</span>
+      </button>
+      <button class="nav-item" data-page="tts" aria-label="Open TTS Studio">
+        <span class="nav-icon" data-icon="mic"></span>
+        <span class="nav-label" data-i18n="nav.tts">TTS</span>
+      </button>
+      <button class="nav-item" data-page="knowledge" aria-label="Open Knowledge Base">
+        <span class="nav-icon" data-icon="knowledge"></span>
+        <span class="nav-label" data-i18n="nav.knowledge">Knowledge</span>
+      </button>
+      <button class="nav-item" data-page="exporter" aria-label="Open System Exporter">
+        <span class="nav-icon" data-icon="package"></span>
+        <span class="nav-label" data-i18n="nav.exporter">Exporter</span>
+      </button>
+    </nav>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="nexus-main" id="nexus-main" role="main">
+
+      <!-- ─── PAGE: LAUNCHER (default) ─── -->
+      <section id="page-launcher" class="nexus-page active">
+        <div class="page-header">
+          <h1 data-i18n="page.launcher.title">Command Center</h1>
+          <span class="page-subtitle" data-i18n="page.launcher.subtitle">Select a module to begin</span>
+        </div>
+        <div class="modules-grid" id="modules-grid">
+          <!-- 6 cards rendered by nexus.js: renderLauncherGrid() -->
+        </div>
+
+        <!-- Live system overview (fills the command center) -->
+        <section class="launcher-overview" aria-label="System overview">
+          <div class="ov-stats">
+            <div class="ov-stat glass">
+              <span class="ov-stat-icon nx-i" data-icon="bolt" data-icon-size="20"></span>
+              <div class="ov-stat-text">
+                <span class="ov-stat-val" id="ov-services">—</span>
+                <span class="ov-stat-label" data-i18n="ov.servicesOnline">Services online</span>
+              </div>
+            </div>
+            <div class="ov-stat glass">
+              <span class="ov-stat-icon nx-i" data-icon="knowledge" data-icon-size="20"></span>
+              <div class="ov-stat-text">
+                <span class="ov-stat-val" id="ov-kb">—</span>
+                <span class="ov-stat-label" data-i18n="ov.knowledgeDocs">Knowledge docs</span>
+              </div>
+            </div>
+            <div class="ov-stat glass">
+              <span class="ov-stat-icon nx-i" data-icon="home" data-icon-size="20"></span>
+              <div class="ov-stat-text">
+                <span class="ov-stat-val" id="ov-iot">—</span>
+                <span class="ov-stat-label" data-i18n="ov.iotDevices">IoT devices</span>
+              </div>
+            </div>
+            <div class="ov-stat glass">
+              <span class="ov-stat-icon nx-i" data-icon="mic" data-icon-size="20"></span>
+              <div class="ov-stat-text">
+                <span class="ov-stat-val" id="ov-tts">—</span>
+                <span class="ov-stat-label" data-i18n="ov.ttsVoices">TTS voices</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="ov-grid">
+            <div class="ov-panel glass">
+              <h3 class="ov-title" data-i18n="ov.systemVitals">System Vitals</h3>
+              <div class="ov-vital">
+                <div class="ov-vital-head"><span>CPU</span><span class="ov-vital-val" id="ov-cpu-val">—</span></div>
+                <div class="ov-bar"><div class="ov-bar-fill" id="ov-cpu-bar"></div></div>
+              </div>
+              <div class="ov-vital">
+                <div class="ov-vital-head"><span>Memory</span><span class="ov-vital-val" id="ov-ram-val">—</span></div>
+                <div class="ov-bar"><div class="ov-bar-fill" id="ov-ram-bar"></div></div>
+              </div>
+              <div class="ov-vital">
+                <div class="ov-vital-head"><span>GPU</span><span class="ov-vital-val" id="ov-gpu-val">—</span></div>
+                <div class="ov-bar"><div class="ov-bar-fill" id="ov-gpu-bar"></div></div>
+              </div>
+            </div>
+            <div class="ov-panel glass">
+              <h3 class="ov-title" data-i18n="ov.serviceHealth">Service Health</h3>
+              <div class="ov-services" id="ov-service-list">
+                <span class="ov-empty" data-i18n="ov.connecting">Connecting…</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <!-- ─── PAGE: CHATBOT ─── -->
+      <section id="page-chatbot" class="nexus-page hidden">
+        <div class="page-header">
+          <h1 data-i18n="page.chatbot.title">ARIA Chatbot</h1>
+          <div class="page-header-right">
+            <span id="chatbot-model-badge" class="badge">Gemma 3 4B</span>
+            <span id="chatbot-status-dot" class="status-dot unknown"></span>
+          </div>
+        </div>
+
+        <!-- Chat message area -->
+        <div id="chat-messages" class="chat-messages" role="log"
+             aria-live="polite" aria-label="Chat conversation"></div>
+
+        <!-- Thinking indicator (hidden by default) -->
+        <div id="chat-thinking" class="chat-thinking hidden" aria-live="polite">
+          <div class="thinking-dot"></div>
+          <div class="thinking-dot"></div>
+          <div class="thinking-dot"></div>
+          <span>ARIA is thinking…</span>
+        </div>
+
+        <!-- Input bar -->
+        <div class="chat-input-bar">
+          <button id="chat-mic-btn" class="btn-icon"
+                  aria-label="Start voice input"><span class="nx-i" data-icon="mic" data-icon-size="20"></span></button>
+          <button id="chat-stop-btn" class="btn-icon btn-stop hidden"
+                  aria-label="Stop speaking · أوقف الكلام" title="Stop speaking · أوقف الكلام (Esc)">⏹</button>
+          <textarea id="chat-input" class="nexus-textarea chat-textarea"
+                    placeholder="Ask ARIA anything…"
+                    rows="1"
+                    aria-label="Chat message input"
+                    aria-multiline="true"></textarea>
+          <span id="chat-ctx-counter" class="ctx-counter"
+                aria-label="Context usage">0 / 4096</span>
+          <button id="chat-send-btn" class="btn-primary"
+                  aria-label="Send message">Send ›</button>
+          <button id="chat-clear-btn" class="btn-ghost"
+                  aria-label="Clear conversation"><span class="nx-i" data-icon="x" data-icon-size="15"></span> Clear</button>
+        </div>
+      </section>
+
+      <!-- ─── PAGE: ROBOT FACE ─── -->
+      <section id="page-face" class="nexus-page hidden">
+        <div class="page-header">
+          <h1 data-i18n="page.face.title">Robot Face</h1>
+          <div class="page-header-right">
+            <span class="badge">Whisper › LLM › Piper</span>
+            <span id="face-status-dot" class="status-dot unknown"></span>
+          </div>
+        </div>
+
+        <div class="face-wrap">
+          <div id="face-stage" class="face-stage" data-state="idle">
+            <div id="face-render"></div>
+            <span id="face-state-pill" class="face-state-pill">Idle · جاهز</span>
+          </div>
+
+          <div class="face-controls">
+            <button id="face-talk-btn" class="face-talk-btn">
+              <span class="face-talk-label">🎙  Tap to Talk</span>
+            </button>
+            <button id="face-stop-btn" class="face-stop-btn hidden"
+                    aria-label="Stop speaking · أوقف الكلام" title="Stop speaking · أوقف الكلام (Esc)">⏹  إيقاف · Stop</button>
+            <div class="face-options">
+              <label><input type="checkbox" id="face-continuous"> Continuous · محادثة مستمرة</label>
+              <button id="face-clear-btn" class="face-clear-btn" aria-label="Clear conversation"><span class="nx-i" data-icon="x" data-icon-size="15"></span> Clear</button>
+              <span id="face-wake-badge" class="face-wake-badge">Wake word off</span>
+            </div>
+          </div>
+
+          <div id="face-transcript" class="face-transcript">
+            <p class="face-empty">Tap “Talk” or say the wake word — ARIA will listen, think, and reply out loud.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── PAGE: IOT CONTROL ─── -->
+      <section id="page-iot" class="nexus-page hidden">
+        <div class="page-header">
+          <h1 data-i18n="page.iot.title">IoT Control</h1>
+          <span class="page-subtitle" data-i18n="page.iot.subtitle">3 connection modes</span>
+        </div>
+
+        <div class="iot-tabs" role="tablist">
+          <button class="iot-tab active" data-tab="ha"
+                  role="tab" aria-selected="true" aria-controls="iot-panel-ha">
+            <span class="nx-i" data-icon="home" data-icon-size="17"></span> Home Assistant
+          </button>
+          <button class="iot-tab" data-tab="network"
+                  role="tab" aria-selected="false" aria-controls="iot-panel-network">
+            <span class="nx-i" data-icon="plug" data-icon-size="17"></span> Network Device
+          </button>
+          <button class="iot-tab" data-tab="web"
+                  role="tab" aria-selected="false" aria-controls="iot-panel-web">
+            <span class="nx-i" data-icon="globe" data-icon-size="17"></span> Web Automation
+          </button>
+        </div>
+
+        <!-- TAB PANEL 1: Home Assistant -->
+        <div id="iot-panel-ha" class="iot-panel active" role="tabpanel">
+          <div class="iot-status-bar">
+            <span id="ha-status-dot" class="status-dot unknown"></span>
+            <span id="ha-status-text">Connecting to Home Assistant…</span>
+            <button id="ha-refresh-btn" class="btn-icon"
+                    aria-label="Refresh HA entities"><span class="nx-i" data-icon="refresh" data-icon-size="18"></span></button>
+          </div>
+          <div id="ha-domain-filters" class="chip-row" role="group"
+               aria-label="Filter by device domain">
+            <button class="chip active" data-domain="all">All</button>
+            <button class="chip" data-domain="switch">Switches</button>
+            <button class="chip" data-domain="light">Lights</button>
+            <button class="chip" data-domain="sensor">Sensors</button>
+            <button class="chip" data-domain="fan">Fans</button>
+            <button class="chip" data-domain="cover">Covers</button>
+            <button class="chip" data-domain="climate">Climate</button>
+          </div>
+          <div id="ha-entity-grid" class="entity-grid"
+               aria-label="Home Assistant entities"></div>
+          <button id="ha-create-virtual-btn" class="btn-secondary"
+                  aria-label="Add a new device to Home Assistant">
+            + Add Device
+          </button>
+          <div id="ha-virtual-form" class="glass-form hidden">
+            <h3>Add Device</h3>
+            <label class="form-label">Device Name
+              <input id="ha-virtual-name" class="nexus-input" type="text"
+                     placeholder="e.g. Garden Lights"
+                     aria-label="Virtual device name"/>
+            </label>
+            <label class="form-label">Type
+              <select id="ha-virtual-type" class="nexus-input" aria-label="Device type">
+                <option value="switch">Switch</option>
+                <option value="light">Light</option>
+                <option value="fan">Fan</option>
+                <option value="sensor">Sensor</option>
+                <option value="cover">Cover</option>
+                <option value="climate">Climate</option>
+              </select>
+            </label>
+            <label class="form-label">Room <span class="form-optional">(optional)</span>
+              <input id="ha-virtual-room" class="nexus-input" type="text"
+                     placeholder="e.g. Living Room"
+                     aria-label="Device room"/>
+            </label>
+            <div class="form-actions">
+              <button id="ha-virtual-submit" class="btn-primary"
+                      aria-label="Add device">Add Device</button>
+              <button id="ha-virtual-cancel" class="btn-ghost"
+                      aria-label="Cancel adding device">Cancel</button>
+            </div>
+          </div>
+
+          <!-- Custom / virtual devices created in NEXUS -->
+          <div id="ha-custom-section" class="ha-custom-section">
+            <h3 class="ha-custom-title">Custom Devices</h3>
+            <div id="ha-custom-grid" class="entity-grid"
+                 aria-label="Custom virtual devices"></div>
+          </div>
+        </div>
+
+        <!-- TAB PANEL 2: Network Device -->
+        <div id="iot-panel-network" class="iot-panel hidden" role="tabpanel">
+          <div class="glass-form">
+            <h3>Add Network Device</h3>
+            <label class="form-label">Search brand or device
+              <input id="net-brand-search" class="nexus-input" type="text"
+                     placeholder="e.g. Tasmota, Shelly, Sonoff, ESPHome…"
+                     aria-label="Search for a device brand"/>
+            </label>
+            <div id="net-brand-list" class="brand-chips" role="group" aria-label="Device brands"></div>
+            <div id="net-brand-info" class="brand-info hidden" aria-live="polite"></div>
+            <label class="form-label">Device Name
+              <input id="net-name" class="nexus-input" type="text"
+                     placeholder="e.g. Living Room Wall Switch"
+                     aria-label="Network device name"/>
+            </label>
+            <label class="form-label">Local IP Address
+              <input id="net-ip" class="nexus-input" type="text"
+                     placeholder="e.g. 192.168.1.50"
+                     aria-label="Device IP address"/>
+            </label>
+            <label class="form-label">Room (optional)
+              <input id="net-room" class="nexus-input" type="text"
+                     placeholder="e.g. Living Room, Bedroom…"
+                     aria-label="Room name"/>
+            </label>
+            <label class="form-label">Device Type
+              <select id="net-type" class="nexus-select" aria-label="Device type">
+                <option value="switch">Single Switch</option>
+                <option value="multi_channel">Multi-Channel (2–4 ch)</option>
+                <option value="dimmer">Dimmer</option>
+                <option value="fan">Fan (speeds 0–3)</option>
+                <option value="rgb_light">RGB Light</option>
+              </select>
+            </label>
+            <div id="net-channels-wrap" class="hidden">
+              <label class="form-label">Channel Names (comma-separated)
+                <input id="net-channels" class="nexus-input" type="text"
+                       placeholder="e.g. Chandelier, Spotlights, LED Strip"
+                       aria-label="Channel names"/>
+              </label>
+            </div>
+            <p class="form-hint">TASMOTA HTTP · Auto-routed commands</p>
+            <div class="form-actions">
+              <button id="net-test-btn" class="btn-secondary"
+                      aria-label="Test device connectivity"><span class="nx-i" data-icon="search" data-icon-size="16"></span> Test IP</button>
+              <button id="net-add-btn" class="btn-primary"
+                      aria-label="Add this device">Add Device</button>
+              <button id="net-scan-btn" class="btn-ghost"
+                      aria-label="Scan LAN for devices"><span class="nx-i" data-icon="scan" data-icon-size="16"></span> LAN Scanner</button>
+            </div>
+            <div id="net-test-result" class="test-result hidden" aria-live="polite"></div>
+            <div id="net-scan-results" class="scan-results hidden" aria-live="polite"></div>
+          </div>
+          <h3 class="section-title">Saved Devices</h3>
+          <div id="net-device-grid" class="entity-grid"
+               aria-label="Saved network devices"></div>
+        </div>
+
+        <!-- TAB PANEL 3: Web Automation -->
+        <div id="iot-panel-web" class="iot-panel hidden" role="tabpanel">
+          <div class="glass-form">
+            <h3>Add Web Action</h3>
+            <label class="form-label">Action Name
+              <input id="web-name" class="nexus-input" type="text"
+                     placeholder="e.g. Turn On via IFTTT"
+                     aria-label="Web action name"/>
+            </label>
+            <label class="form-label">URL
+              <input id="web-url" class="nexus-input" type="url"
+                     placeholder="https://maker.ifttt.com/trigger/…"
+                     aria-label="Webhook URL"/>
+            </label>
+            <label class="form-label">HTTP Method
+              <select id="web-method" class="nexus-select" aria-label="HTTP method">
+                <option value="POST">POST</option>
+                <option value="GET">GET</option>
+                <option value="PUT">PUT</option>
+                <option value="PATCH">PATCH</option>
+                <option value="DELETE">DELETE</option>
+              </select>
+            </label>
+            <label class="form-label">Headers (JSON object, optional)
+              <textarea id="web-headers" class="nexus-textarea" rows="3"
+                        placeholder='{"Authorization": "Bearer token123"}'
+                        aria-label="Request headers as JSON"></textarea>
+            </label>
+            <label class="form-label">Body (raw string or JSON, optional)
+              <textarea id="web-body" class="nexus-textarea" rows="4"
+                        placeholder='{"value1": "on", "value2": "living_room"}'
+                        aria-label="Request body"></textarea>
+            </label>
+            <div class="form-actions">
+              <button id="web-save-btn" class="btn-primary"
+                      aria-label="Save this web action">Save Action</button>
+              <button id="web-cancel-edit-btn" class="btn-ghost hidden"
+                      aria-label="Cancel editing">Cancel</button>
+            </div>
+          </div>
+          <h3 class="section-title">Saved Web Actions</h3>
+          <div id="web-action-list" class="web-action-list"
+               aria-label="Saved web actions"></div>
+        </div>
+      </section>
+
+      <!-- ─── PAGE: SYSTEM MONITOR ─── -->
+      <section id="page-monitor" class="nexus-page hidden">
+        <div class="page-header">
+          <h1 data-i18n="page.monitor.title">System Monitor</h1>
+          <div class="page-header-right">
+            <span class="badge">Live · 3s refresh</span>
+            <button id="monitor-pause-btn" class="btn-icon"
+                    aria-label="Pause live refresh"><span class="nx-i" data-icon="pause" data-icon-size="18"></span></button>
+          </div>
+        </div>
+        <div class="monitor-grid">
+          <div class="stat-card glass" id="stat-cpu">
+            <div class="stat-icon" data-icon="cpu"></div>
+            <div class="stat-body">
+              <span class="stat-label">CPU</span>
+              <span class="stat-value" id="stat-cpu-val">—</span>
+            </div>
+            <div class="stat-bar-track">
+              <div class="stat-bar-fill" id="stat-cpu-bar" style="transform:scaleX(0)"></div>
+            </div>
+          </div>
+          <div class="stat-card glass" id="stat-ram">
+            <div class="stat-icon" data-icon="memory"></div>
+            <div class="stat-body">
+              <span class="stat-label">RAM</span>
+              <span class="stat-value" id="stat-ram-val">—</span>
+            </div>
+            <div class="stat-bar-track">
+              <div class="stat-bar-fill" id="stat-ram-bar" style="transform:scaleX(0)"></div>
+            </div>
+          </div>
+          <div class="stat-card glass" id="stat-disk">
+            <div class="stat-icon" data-icon="disk"></div>
+            <div class="stat-body">
+              <span class="stat-label">Disk</span>
+              <span class="stat-value" id="stat-disk-val">—</span>
+            </div>
+            <div class="stat-bar-track">
+              <div class="stat-bar-fill" id="stat-disk-bar" style="transform:scaleX(0)"></div>
+            </div>
+          </div>
+          <div class="stat-card glass" id="stat-gpu">
+            <div class="stat-icon" data-icon="gpu"></div>
+            <div class="stat-body">
+              <span class="stat-label">GPU</span>
+              <span class="stat-value" id="stat-gpu-val">—</span>
+            </div>
+            <div class="stat-bar-track">
+              <div class="stat-bar-fill" id="stat-gpu-bar" style="transform:scaleX(0)"></div>
+            </div>
+          </div>
+        </div>
+        <h3 class="section-title">ARIA Services</h3>
+        <div id="services-grid" class="services-grid"></div>
+      </section>
+
+      <!-- ─── PAGE: TTS STUDIO ─── -->
+      <section id="page-tts" class="nexus-page hidden">
+        <div class="page-header">
+          <h1 data-i18n="page.tts.title">TTS Studio</h1>
+          <div class="page-header-right">
+            <span id="tts-status-dot" class="status-dot unknown"></span>
+            <span id="tts-status-text">Checking TTS server…</span>
+          </div>
+        </div>
+
+        <div class="glass current-voice-card">
+          <div class="cv-label">Active Voice</div>
+          <div class="cv-name" id="tts-active-voice-name">Loading…</div>
+          <div class="cv-meta" id="tts-active-voice-meta"></div>
+          <button id="tts-preview-active-btn" class="btn-secondary"
+                  aria-label="Preview current active voice">
+            <span class="nx-i" data-icon="play" data-icon-size="15"></span> Preview Active Voice
+          </button>
+        </div>
+
+        <div class="glass tts-preview-panel">
+          <label class="form-label">Preview Text
+            <textarea id="tts-preview-text" class="nexus-textarea" rows="3"
+                      aria-label="Text to preview with selected voice">Hello, I am ARIA, your personal AI assistant.</textarea>
+          </label>
+        </div>
+
+        <h3 class="section-title">Available Piper Voices</h3>
+        <div class="tts-filter-row">
+          <input id="tts-voice-search" class="nexus-input" type="text"
+                 placeholder="Search voices…"
+                 aria-label="Search voices by name or language"/>
+          <select id="tts-lang-filter" class="nexus-select"
+                  aria-label="Filter by language">
+            <option value="all">All Languages</option>
+          </select>
+        </div>
+        <div id="tts-voice-grid" class="tts-voice-grid"
+             aria-label="Available Piper voices"></div>
+      </section>
+
+      <!-- ─── PAGE: KNOWLEDGE BASE ─── -->
+      <section id="page-knowledge" class="nexus-page hidden">
+        <div class="page-header">
+          <h1 data-i18n="page.knowledge.title">Knowledge Base</h1>
+          <div class="page-header-right">
+            <span id="rag-status-dot" class="status-dot unknown"></span>
+            <button id="rag-refresh-btn" class="btn-icon"
+                    aria-label="Refresh knowledge base stats"><span class="nx-i" data-icon="refresh" data-icon-size="18"></span></button>
+          </div>
+        </div>
+
+        <div class="rag-stats-bar glass">
+          <div class="rag-stat">
+            <span class="rag-stat-label">Collection</span>
+            <span class="rag-stat-value" id="rag-collection-name">—</span>
+          </div>
+          <div class="rag-stat">
+            <span class="rag-stat-label">Documents</span>
+            <span class="rag-stat-value" id="rag-doc-count">—</span>
+          </div>
+          <div class="rag-stat">
+            <span class="rag-stat-label">Chunks</span>
+            <span class="rag-stat-value" id="rag-chunk-count">—</span>
+          </div>
+          <div class="rag-stat">
+            <span class="rag-stat-label">Embedding Model</span>
+            <span class="rag-stat-value" id="rag-embed-model">—</span>
+          </div>
+        </div>
+
+        <div class="glass rag-add-panel">
+          <h3>Add Knowledge</h3>
+          <p class="rag-add-hint">Paste text or notes to add them to the knowledge base. Markdown is supported.</p>
+          <input id="kb-add-title" class="nexus-input" type="text"
+                 placeholder="Title / source name (optional)…" aria-label="Document title"/>
+          <textarea id="kb-add-text" class="nexus-input rag-textarea"
+                    placeholder="Paste the information you want ARIA to remember…"
+                    aria-label="Knowledge text"></textarea>
+          <div class="form-actions">
+            <button id="kb-add-btn" class="btn-primary"
+                    aria-label="Add text to knowledge base"><span class="nx-i" data-icon="plus" data-icon-size="15"></span> Add to Knowledge Base</button>
+            <span id="kb-add-feedback" class="settings-feedback hidden" aria-live="polite"></span>
+          </div>
+        </div>
+
+        <div class="glass rag-search-panel">
+          <h3>Test a Query</h3>
+          <div class="rag-search-row">
+            <input id="rag-query-input" class="nexus-input" type="text"
+                   placeholder="Type a question to test retrieval…"
+                   aria-label="Test RAG query"/>
+            <button id="rag-query-btn" class="btn-primary"
+                    aria-label="Run test query">Search</button>
+          </div>
+          <div id="rag-query-results" class="rag-results hidden" aria-live="polite"></div>
+        </div>
+
+        <h3 class="section-title">Indexed Documents</h3>
+        <div id="rag-doc-list" class="rag-doc-list"
+             aria-label="Indexed documents in knowledge base"></div>
+
+        <div id="kb-editor" class="glass rag-edit-panel hidden">
+          <div class="rag-edit-head">
+            <h3>Editing: <span id="kb-edit-name" class="rag-edit-name">—</span></h3>
+            <button id="kb-edit-close" class="btn-icon" aria-label="Close editor"><span class="nx-i" data-icon="x" data-icon-size="16"></span></button>
+          </div>
+          <div class="rag-edit-cols">
+            <textarea id="kb-edit-text" class="nexus-input rag-textarea"
+                      aria-label="Document text"></textarea>
+            <div id="kb-edit-preview" class="rag-edit-preview nxmd" aria-label="Live preview"></div>
+          </div>
+          <div class="form-actions">
+            <button id="kb-edit-save" class="btn-primary"
+                    aria-label="Save document changes"><span class="nx-i" data-icon="save" data-icon-size="15"></span> Save Changes</button>
+            <button id="kb-edit-cancel" class="btn-secondary" aria-label="Cancel editing">Cancel</button>
+          </div>
+        </div>
+
+        <h3 class="section-title">RAG Settings</h3>
+        <div class="glass rag-settings-panel">
+          <div class="settings-row">
+            <label class="form-label" for="rag-chunk-size">Chunk Size (tokens)
+              <input id="rag-chunk-size" class="nexus-input" type="number"
+                     min="100" max="4000" step="50" aria-label="Chunk size in tokens"/>
+            </label>
+            <label class="form-label" for="rag-chunk-overlap">Chunk Overlap (tokens)
+              <input id="rag-chunk-overlap" class="nexus-input" type="number"
+                     min="0" max="500" step="10" aria-label="Chunk overlap in tokens"/>
+            </label>
+            <label class="form-label" for="rag-top-k">Top-K Results
+              <input id="rag-top-k" class="nexus-input" type="number"
+                     min="1" max="20" aria-label="Number of top results to return"/>
+            </label>
+            <label class="form-label" for="rag-min-relevance">Min Relevance Score (0–1)
+              <input id="rag-min-relevance" class="nexus-input" type="number"
+                     min="0" max="1" step="0.05" aria-label="Minimum relevance score threshold"/>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button id="rag-save-settings-btn" class="btn-primary"
+                    aria-label="Save RAG settings">Save Settings</button>
+            <button id="rag-reindex-btn" class="btn-secondary"
+                    aria-label="Re-index all documents"><span class="nx-i" data-icon="reindex" data-icon-size="16"></span> Re-index All Documents</button>
+          </div>
+          <div id="rag-settings-feedback" class="settings-feedback hidden" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <!-- ─── PAGE: ASSISTANT ─── -->
+      <section id="page-assistant" class="nexus-page hidden">
+        <div class="page-header">
+          <h1 data-i18n="page.assistant.title">Assistant</h1>
+          <div class="page-header-right">
+            <span id="assist-ha-dot" class="status-dot unknown"></span>
+            <button id="assist-refresh-btn" class="btn-icon"
+                    aria-label="Refresh assistant"><span class="nx-i" data-icon="refresh" data-icon-size="18"></span></button>
+          </div>
+        </div>
+
+        <div class="glass" style="padding:16px;margin-bottom:18px;">
+          <h3>أوامر صوتية — Voice commands</h3>
+          <p class="rag-add-hint">نادِ ARIA بالاسم أو اضغط Talk، ثم قل أمرك مباشرة:</p>
+          <ul class="assist-help">
+            <li>🏠 <b>بيت ذكي:</b> «طفّي الضوء» · «شغّل المروحة» · «سكّر كل الأضواء»</li>
+            <li>🧠 <b>ذاكرة:</b> «اسمي سجاد» · «تذكر اني أحب القهوة» · «شنو اسمي؟»</li>
+            <li>🔁 <b>روتينات:</b> «صباح الخير» · «تصبح على خير» · «طالع برة»</li>
+          </ul>
+        </div>
+
+        <h3 class="section-title">اللغة والصوت — Language &amp; Voice</h3>
+        <div class="glass" style="padding:16px;margin-bottom:18px;">
+          <p class="rag-add-hint">يبدّل الصوت تلقائياً حسب لغة الرد (عربي/إنكليزي). اختر صوت Piper لكل لغة:</p>
+          <div class="assist-voice-grid">
+            <div class="assist-voice-cell">
+              <label class="form-label" for="assist-voice-ar">🅰 العربية — Arabic voice</label>
+              <div class="assist-voice-row">
+                <select id="assist-voice-ar" class="nexus-input" aria-label="Arabic voice"></select>
+                <button class="btn-secondary assist-voice-test" data-lang="ar" aria-label="Test Arabic voice">▶ تجربة</button>
+              </div>
+            </div>
+            <div class="assist-voice-cell">
+              <label class="form-label" for="assist-voice-en">🅱 English — English voice</label>
+              <div class="assist-voice-row">
+                <select id="assist-voice-en" class="nexus-input" aria-label="English voice"></select>
+                <button class="btn-secondary assist-voice-test" data-lang="en" aria-label="Test English voice">▶ Test</button>
+              </div>
+            </div>
+          </div>
+          <label class="assist-toggle"><input type="checkbox" id="assist-tts-toggle" checked> النطق الصوتي مفعّل — Speak replies aloud</label>
+        </div>
+
+        <h3 class="section-title">الذاكرة الشخصية — Personal Memory</h3>
+        <div class="glass" style="padding:16px;margin-bottom:18px;">
+          <div class="rag-search-row">
+            <input id="assist-name-input" class="nexus-input" type="text"
+                   placeholder="اسمك… (your name)" aria-label="Your name"/>
+            <button id="assist-name-save" class="btn-primary" aria-label="Save name">حفظ الاسم</button>
+          </div>
+          <div class="rag-search-row" style="margin-top:10px;">
+            <input id="assist-fact-key" class="nexus-input" type="text"
+                   placeholder="المعلومة (key) — مثال: المدينة" aria-label="Fact key"/>
+            <input id="assist-fact-val" class="nexus-input" type="text"
+                   placeholder="القيمة (value) — مثال: بغداد" aria-label="Fact value"/>
+            <button id="assist-fact-add" class="btn-primary" aria-label="Add fact">إضافة</button>
+          </div>
+          <div id="assist-mem-list" class="assist-list" aria-label="Stored memory"></div>
+        </div>
+
+        <div class="assist-routines-head">
+          <h3 class="section-title" style="margin:0;">الروتينات — Routines</h3>
+          <button id="assist-routine-add" class="btn-secondary" aria-label="Add routine">＋ روتين جديد</button>
+        </div>
+        <div id="assist-routine-list" class="assist-list" aria-label="Routines"></div>
+        <span id="assist-feedback" class="settings-feedback hidden" aria-live="polite"></span>
+      </section>
+
+      <!-- ─── PAGE: EXPORTER ─── -->
+      <section id="page-exporter" class="nexus-page hidden">
+        <div class="page-header">
+          <h1 data-i18n="page.exporter.title">System Exporter</h1>
+          <span class="page-subtitle" data-i18n="page.exporter.subtitle">Export or import full ARIA configuration</span>
+        </div>
+
+        <div class="exp-tabs" role="tablist">
+          <button class="exp-tab active" data-exptab="export"
+                  role="tab" aria-controls="exp-panel-export"><span class="nx-i" data-icon="download" data-icon-size="16"></span> Export</button>
+          <button class="exp-tab" data-exptab="import"
+                  role="tab" aria-controls="exp-panel-import"><span class="nx-i" data-icon="upload" data-icon-size="16"></span> Import</button>
+        </div>
+
+        <div id="exp-panel-export" class="exp-panel active">
+          <div class="glass export-options">
+            <h3>Select Categories</h3>
+            <div class="toggle-list">
+              <label class="toggle-row">
+                <span>System Config (LLM, TTS, RAG, YOLO)</span>
+                <input type="checkbox" id="exp-toggle-config" checked
+                       aria-label="Include system config in export"/>
+              </label>
+              <label class="toggle-row">
+                <span>IoT Devices (HA entities + network devices)</span>
+                <input type="checkbox" id="exp-toggle-iot" checked
+                       aria-label="Include IoT devices in export"/>
+              </label>
+              <label class="toggle-row">
+                <span>Web Actions</span>
+                <input type="checkbox" id="exp-toggle-webactions" checked
+                       aria-label="Include web actions in export"/>
+              </label>
+              <label class="toggle-row">
+                <span>RAG Knowledge (document list)</span>
+                <input type="checkbox" id="exp-toggle-rag" checked
+                       aria-label="Include RAG knowledge in export"/>
+              </label>
+            </div>
+          </div>
+          <h3 class="section-title">Preview</h3>
+          <pre id="export-preview" class="glass json-preview"
+               aria-label="Export manifest preview">{ }</pre>
+          <button id="btn-export-download" class="btn-primary"
+                  aria-label="Download export package as JSON file">
+            <span class="nx-i" data-icon="download" data-icon-size="17"></span> Download Export Package
+          </button>
+        </div>
+
+        <div id="exp-panel-import" class="exp-panel hidden">
+          <div id="import-dropzone" class="import-dropzone glass"
+               role="region" aria-label="Drop zone for import JSON file" tabindex="0">
+            <span class="dropzone-icon" data-icon="folder" data-icon-size="40"></span>
+            <p>Drag &amp; drop your <code>aria_export_*.json</code> here</p>
+            <p class="dropzone-hint">or click to browse</p>
+            <input type="file" id="import-file-input" accept=".json"
+                   aria-label="Select import file"/>
+          </div>
+          <div id="import-validation" class="import-validation hidden" aria-live="polite"></div>
+          <div class="form-actions">
+            <label class="toggle-row">
+              <span>Dry Run (validate only, do not apply)</span>
+              <input type="checkbox" id="import-dry-run" checked
+                     aria-label="Enable dry run mode"/>
+            </label>
+            <button id="btn-import-apply" class="btn-primary" disabled
+                    aria-label="Apply import to this environment">
+              <span class="nx-i" data-icon="check" data-icon-size="16"></span> Apply to Environment
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </main><!-- /nexus-main -->
+  </div><!-- /dashboard -->
+
+  <!-- TOAST CONTAINER -->
+  <div id="toast-container" role="status" aria-live="polite" aria-label="Notifications"></div>
+
+  <!-- Tiny “mic armed” dot — the ONLY hint that the wake word is listening.
+       The call screen stays hidden until someone says “aria”. Tap to grant
+       mic permission / re-arm. Hide it from Settings if you prefer. -->
+  <button id="wake-indicator" class="off" type="button" aria-label="Wake word listening"></button>
+
+  <!-- ═══ ASSISTANT CALL (hands-free voice screen) ═══ -->
+  <div id="assistant-call" aria-hidden="true" role="dialog" aria-label="ARIA voice call" data-mode="idle">
+    <div class="acall-inner">
+      <div class="acall-title"><span class="acall-led"></span> ARIA</div>
+      <div id="acall-status" class="acall-status">…</div>
+      <div id="acall-viz" class="acall-viz" aria-hidden="true"></div>
+      <div id="acall-caption" class="acall-caption"></div>
+      <div class="acall-controls">
+        <button id="acall-mute" class="acall-btn acall-mute" type="button" aria-label="Mute microphone" title="Mute · كتم">
+          <span class="acall-ic-on">🎙</span><span class="acall-ic-off">🔇</span>
+        </button>
+        <button id="acall-end" class="acall-btn acall-end" type="button">End · إنهاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ CUSTOMIZATION DRAWER ═══ -->
+  <div id="settings-scrim" class="settings-scrim" aria-hidden="true"></div>
+  <aside id="settings-drawer" class="settings-drawer" role="dialog"
+         aria-label="Customize interface" aria-hidden="true">
+    <div class="settings-head">
+      <h2 data-i18n="settings.title">Customize</h2>
+      <button id="settings-close" class="btn-icon" aria-label="Close customization"><span class="nx-i" data-icon="x" data-icon-size="18"></span></button>
+    </div>
+    <div class="settings-body">
+      <nav class="set-tabs" id="set-tabs" role="tablist">
+        <button type="button" class="set-tab active" data-tab="appearance">🎨<span data-i18n="tab.appearance">Appearance</span></button>
+        <button type="button" class="set-tab" data-tab="mic">🎙️<span data-i18n="tab.mic">Mic &amp; Wake</span></button>
+        <button type="button" class="set-tab" data-tab="voice">🗣️<span data-i18n="tab.voice">Voice</span></button>
+        <button type="button" class="set-tab" data-tab="llm">🧠<span data-i18n="tab.assistant">Assistant</span></button>
+        <button type="button" class="set-tab" data-tab="sound">🔊<span data-i18n="tab.sound">Sound</span></button>
+      </nav>
+
+      <!-- APPEARANCE -->
+      <div class="set-panel active" data-panel="appearance">
+        <section class="set-group">
+          <label class="set-row"><span data-i18n="set.language">Language</span>
+            <select id="set-language" class="set-select">
+              <option value="en" data-i18n="opt.lang.en">English</option>
+              <option value="ar" data-i18n="opt.lang.ar">Arabic · العربية</option>
+            </select>
+          </label>
+          <p class="set-hint" data-i18n="set.langHint">Switches the whole interface and text direction (LTR / RTL).</p>
+        </section>
+        <section class="set-group">
+          <label class="set-label" data-i18n="set.accentTheme">Accent theme</label>
+          <div class="theme-swatches" id="theme-swatches"></div>
+        </section>
+        <section class="set-group">
+          <label class="set-label" for="set-hue"><span data-i18n="set.accentHue">Custom accent hue</span> <span class="set-val" id="hue-val"></span></label>
+          <input type="range" class="set-range" id="set-hue" min="0" max="360" step="1">
+        </section>
+        <section class="set-group">
+          <label class="set-label" for="set-blur"><span data-i18n="set.glassBlur">Glass blur</span> <span class="set-val" id="blur-val"></span></label>
+          <input type="range" class="set-range" id="set-blur" min="0" max="40" step="1">
+        </section>
+        <section class="set-group">
+          <label class="set-label" for="set-scale"><span data-i18n="set.uiScale">Interface scale</span> <span class="set-val" id="scale-val"></span></label>
+          <input type="range" class="set-range" id="set-scale" min="80" max="125" step="5">
+        </section>
+        <section class="set-group">
+          <label class="set-toggle"><span data-i18n="set.ambientGlow">Ambient glow</span><input type="checkbox" id="set-depth"><span class="switch"></span></label>
+          <label class="set-toggle"><span data-i18n="set.gridOverlay">Grid overlay</span><input type="checkbox" id="set-grid"><span class="switch"></span></label>
+          <label class="set-toggle"><span data-i18n="set.filmGrain">Film grain</span><input type="checkbox" id="set-grain"><span class="switch"></span></label>
+          <label class="set-toggle"><span data-i18n="set.reduceMotion">Reduce motion</span><input type="checkbox" id="set-motion"><span class="switch"></span></label>
+        </section>
+      </div>
+
+      <!-- MIC & WAKE -->
+      <div class="set-panel" data-panel="mic">
+        <section class="set-group">
+          <label class="set-label" data-i18n="set.wakeWord">Wake word</label>
+          <p class="set-hint" data-i18n="set.wakeHint">Say “aria” to open the assistant. The mic runs quietly in the background and shows nothing until it hears the word.</p>
+          <label class="set-toggle"><span data-i18n="set.alwaysOn">Always-on wake word</span><input type="checkbox" id="set-wake"><span class="switch"></span></label>
+          <label class="set-row"><span data-i18n="set.wakeSource">Wake source</span>
+            <select id="set-wake-source" class="set-select">
+              <option value="device" data-i18n="opt.source.device">This device</option>
+              <option value="jetson" data-i18n="opt.source.jetson">Jetson mic</option>
+            </select>
+          </label>
+          <label class="set-row" id="row-device-mode"><span data-i18n="set.deviceMode">Device mode</span>
+            <select id="set-wake-device-mode" class="set-select">
+              <option value="stream" data-i18n="opt.mode.stream">Stream to Jetson · offline (LAN)</option>
+              <option value="speech" data-i18n="opt.mode.speech">Browser speech · needs internet</option>
+            </select>
+          </label>
+          <p class="set-hint" id="hint-device-mode"></p>
+        </section>
+        <section class="set-group">
+          <label class="set-label" data-i18n="set.micDeviceTitle">Microphone device</label>
+          <label class="set-row" id="row-mic-browser"><span data-i18n="set.thisDeviceMic">This device mic</span>
+            <select id="set-mic-device" class="set-select"></select>
+          </label>
+          <label class="set-row" id="row-mic-jetson"><span data-i18n="set.jetsonInput">Jetson input</span>
+            <select id="set-jetson-device" class="set-select"></select>
+          </label>
+          <p class="set-hint" data-i18n="set.micHint">If it can’t hear you, pick the right microphone here.</p>
+        </section>
+        <section class="set-group">
+          <label class="set-label" for="set-wake-sensitivity"><span data-i18n="set.sensitivity">Sensitivity</span> <span class="set-val" id="wake-sensitivity-val"></span></label>
+          <input type="range" class="set-range" id="set-wake-sensitivity" min="0" max="100" step="5">
+          <p class="set-hint" data-i18n="set.sensitivityHint">Higher = wakes faster (but more false triggers).</p>
+        </section>
+        <section class="set-group">
+          <label class="set-toggle"><span data-i18n="set.confirmChime">Confirmation chime</span><input type="checkbox" id="set-wake-chime"><span class="switch"></span></label>
+          <label class="set-toggle"><span data-i18n="set.listeningDot">Show listening dot</span><input type="checkbox" id="set-wake-dot"><span class="switch"></span></label>
+          <label class="set-row"><span data-i18n="set.wakeOpens">Wake opens</span>
+            <select id="set-wake-ui" class="set-select">
+              <option value="call" data-i18n="opt.wakeui.call">Assistant call</option>
+              <option value="face" data-i18n="opt.wakeui.face">Robot face</option>
+            </select>
+          </label>
+        </section>
+        <p class="set-status" id="wake-status-line"></p>
+      </div>
+
+      <!-- VOICE -->
+      <div class="set-panel" data-panel="voice">
+        <section class="set-group">
+          <label class="set-label" data-i18n="set.tts">Text-to-speech</label>
+          <label class="set-toggle"><span data-i18n="set.speakReplies">Speak chatbot replies</span><input type="checkbox" id="set-chat-voice"><span class="switch"></span></label>
+          <label class="set-row"><span data-i18n="set.arabicVoice">Arabic voice</span><select id="set-voice-ar" class="set-select"></select></label>
+          <label class="set-row"><span data-i18n="set.englishVoice">English voice</span><select id="set-voice-en" class="set-select"></select></label>
+          <p class="set-hint" data-i18n="set.voiceHint">Picks the voice automatically based on the reply language (Arabic / English).</p>
+        </section>
+      </div>
+
+      <!-- ASSISTANT / LLM -->
+      <div class="set-panel" data-panel="llm">
+        <section class="set-group">
+          <label class="set-label" data-i18n="set.modelBehaviour">Model behaviour</label>
+          <label class="set-label" for="set-llm-temp"><span data-i18n="set.temperature">Temperature</span> <span class="set-val" id="llm-temp-val"></span></label>
+          <input type="range" class="set-range" id="set-llm-temp" min="0" max="1.5" step="0.05">
+          <p class="set-hint" data-i18n="set.tempHint">Low = precise and consistent, high = creative and varied.</p>
+          <label class="set-label" for="set-llm-topp"><span data-i18n="set.topP">Top-p</span> <span class="set-val" id="llm-topp-val"></span></label>
+          <input type="range" class="set-range" id="set-llm-topp" min="0" max="1" step="0.05">
+          <label class="set-label" for="set-llm-maxtokens"><span data-i18n="set.maxReply">Max reply length</span> <span class="set-val" id="llm-maxtokens-val"></span></label>
+          <input type="range" class="set-range" id="set-llm-maxtokens" min="0" max="2048" step="64">
+          <p class="set-hint" data-i18n="set.maxReplyHint">0 = unlimited (the model decides).</p>
+        </section>
+      </div>
+
+      <!-- SOUND -->
+      <div class="set-panel" data-panel="sound">
+        <section class="set-group">
+          <label class="set-label" for="set-volume"><span data-i18n="set.soundVolume">Sound volume</span> <span class="set-val" id="volume-val"></span></label>
+          <input type="range" class="set-range" id="set-volume" min="0" max="100" step="5">
+        </section>
+        <section class="set-group">
+          <label class="set-toggle"><span data-i18n="set.soundEffects">Sound effects</span><input type="checkbox" id="set-sound"><span class="switch"></span></label>
+          <label class="set-toggle"><span data-i18n="set.hoverSounds">Hover sounds</span><input type="checkbox" id="set-hover"><span class="switch"></span></label>
+          <label class="set-toggle"><span data-i18n="set.ambientMusic">Ambient music</span><input type="checkbox" id="set-music"><span class="switch"></span></label>
+        </section>
+      </div>
+
+      <button id="settings-reset" class="btn-secondary" data-i18n="settings.reset">Reset to defaults</button>
+    </div>
+  </aside>
+
+  <!-- SCRIPTS (order matters) -->
+  <script src="js/i18n.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/vendor/nx-markdown.js"></script>
+  <script src="js/vendor/nx-sound.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/mic.js"></script>
+  <script src="js/voice.js"></script>
+  <script src="js/pages/chatbot.js"></script>
+  <script src="js/pages/call.js"></script>
+  <script src="js/pages/face.js"></script>
+  <script src="js/wakelistener.js"></script>
+  <script src="js/wake.js"></script>
+  <script src="js/pages/iot.js"></script>
+  <script src="js/pages/assistant.js"></script>
+  <script src="js/pages/monitor.js"></script>
+  <script src="js/pages/tts.js"></script>
+  <script src="js/pages/knowledge.js"></script>
+  <script src="js/pages/exporter.js"></script>
+  <script src="js/nexus.js"></script>
+  <script src="js/settings.js"></script>
+
+</body>
+</html>

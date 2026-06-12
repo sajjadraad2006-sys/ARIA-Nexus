@@ -1,0 +1,30 @@
+# ============================================================
+#  ARIA NEXUS — Python Dependencies
+# ============================================================
+
+# --- Web Server ---
+flask>=2.0.0
+flask-cors>=3.0.0
+flask-socketio>=5.3.0
+requests>=2.28.0
+pyopenssl>=23.0.0
+
+# --- Core / System ---
+numpy>=1.24.0
+psutil>=5.9.0
+pyyaml>=6.0
+
+# --- Audio & Voice ---
+openwakeword>=0.5.1
+sounddevice>=0.4.6
+piper-tts>=1.2.0
+
+# --- RAG System ---
+langchain>=0.3.0
+langchain-community>=0.3.0
+langchain-huggingface>=0.1.0
+langchain-chroma>=0.1.0
+langchain-text-splitters>=0.3.0
+chromadb>=0.5.0
+sentence-transformers>=2.2.0
+pypdf>=3.0.0

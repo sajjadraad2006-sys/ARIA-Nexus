@@ -1,0 +1,48 @@
+/* =====================================================================
+   ARIA NEXUS — perf.css
+   Lightweight rendering optimizations. Loaded last so it can layer on
+   top of the visual styles without changing how anything looks.
+   ===================================================================== */
+
+/* Isolate each page's layout/paint so switching modules and scrolling one
+   page never forces the browser to re-layout the rest of the app. */
+.nexus-page { contain: layout paint; }
+
+/* Hidden pages are display:none already; make sure they cost nothing and
+   are skipped entirely by rendering until shown. */
+.nexus-page.hidden { content-visibility: hidden; }
+
+/* Large card grids: let the browser skip rendering rows that are scrolled
+   out of view, with a size hint so the scrollbar stays stable. */
+.modules-grid,
+.entity-grid,
+.voice-grid,
+.rag-doc-list,
+.assist-list,
+.web-action-list {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px;
+}
+
+/* Promote only the elements that actually animate/slide to their own GPU
+   layer, so transforms don't repaint their neighbours. */
+.settings-drawer,
+#assistant-call,
+#wake-indicator,
+.splash-progress-fill { will-change: transform; }
+
+/* Decorative full-screen texture/particle layers should never intercept
+   input or trigger layout work. */
+.texture-layer,
+#particle-canvas,
+.ambient-layer { contain: strict; pointer-events: none; }
+
+/* Honour the OS “reduce motion” preference for users who ask for it,
+   on top of the in-app toggle. */
+@media (prefers-reduced-motion: reduce) {
+  .nx-auto-reduce * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

@@ -1,0 +1,29 @@
+# secrets - never push
+.env
+*.env
+!.env.example
+certs/
+*.pem
+*.key
+
+# python env
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# large models and binaries
+models/
+vendor/
+*.gguf
+*.bin
+*.onnx.data
+
+# vector db (rebuilt by ingest.py)
+chroma_db/
+
+# misc
+*.log
+*.wav
+node_modules/
+.DS_Store

@@ -1,0 +1,307 @@
+/* =====================================================================
+   ARIA NEXUS — polish.css
+   Small, additive “professional finish” touches. Loaded last so it only
+   layers on top of existing styles and never fights the base look.
+   ===================================================================== */
+
+/* --- Accessible keyboard focus ring (mouse clicks stay clean) --------- */
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible,
+.nav-item:focus-visible,
+.set-tab:focus-visible,
+.icon-btn:focus-visible {
+  outline: 2px solid var(--nexus-accent-1);
+  outline-offset: 2px;
+  border-radius: var(--nexus-radius-sm);
+}
+
+/* --- Branded text selection ------------------------------------------ */
+::selection {
+  background: hsla(195, 100%, 55%, 0.30);
+  color: #fff;
+}
+
+/* --- Smooth in-page scrolling ---------------------------------------- */
+html { scroll-behavior: smooth; }
+
+/* --- Slightly richer scrollbar thumb (matches the brand gradient) ----- */
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    hsla(195, 100%, 55%, 0.30),
+    hsla(265, 80%, 65%, 0.30)
+  );
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    hsla(195, 100%, 55%, 0.50),
+    hsla(265, 80%, 65%, 0.50)
+  );
+}
+* { scrollbar-color: hsla(210, 40%, 70%, 0.30) transparent; }
+
+/* --- Subtle, consistent card lift on hover --------------------------- */
+.module-card,
+.glass-card,
+.set-panel,
+.stat-card {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.module-card:hover,
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px -12px hsla(195, 100%, 55%, 0.35);
+  border-color: hsla(195, 100%, 55%, 0.35);
+}
+
+/* --- Buttons feel tactile (press feedback) --------------------------- */
+button:active,
+[role="button"]:active { transform: translateY(1px); }
+
+/* --- Disabled controls read as disabled ------------------------------ */
+button:disabled,
+.nexus-select:disabled,
+.nexus-input:disabled,
+.set-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Dropdown options must be readable everywhere ---------------------
+   Native <option> elements were inheriting a dark text colour on a dark
+   popup (e.g. the Arabic language option / IoT “Type” picker looked black
+   on black). Force a consistent dark-surface + light-text everywhere. */
+select option,
+.nexus-select option,
+.set-select option,
+.assist-voice-row select option {
+  background-color: #15202b;
+  color: #ffffff;
+}
+select optgroup,
+.nexus-select optgroup {
+  background-color: #0f1620;
+  color: #9fb0c3;
+}
+
+/* --- IoT: brand catalog + device recipe + network scan ---------------- */
+.brand-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+.brand-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid hsla(210, 40%, 70%, 0.18);
+  background: hsla(210, 40%, 70%, 0.05);
+  color: var(--nexus-text, #e8eef5);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, transform .1s ease;
+}
+.brand-chip:hover { background: hsla(195, 100%, 55%, 0.12); }
+.brand-chip:active { transform: scale(.97); }
+.brand-chip.active {
+  border-color: hsl(195, 100%, 55%);
+  background: hsla(195, 100%, 55%, 0.18);
+  box-shadow: 0 0 0 1px hsla(195, 100%, 55%, 0.4) inset;
+}
+.brand-empty { font-size: 12.5px; opacity: .65; padding: 6px 2px; }
+.brand-info {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: var(--nexus-radius-sm, 10px);
+  border: 1px solid hsla(195, 100%, 55%, 0.22);
+  background: hsla(195, 100%, 55%, 0.06);
+}
+.brand-info-head { display: flex; align-items: center; gap: 7px; font-size: 14px; }
+.brand-proto {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: hsla(265, 80%, 65%, 0.2);
+  color: #d7c6ff;
+}
+.brand-note { margin: 6px 0 8px; font-size: 12.5px; opacity: .8; }
+.brand-cmd, .recipe-v code {
+  display: inline-block;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #8be9fd;
+  word-break: break-all;
+}
+
+/* Device “how it was added” recipe */
+.device-recipe {
+  margin: 10px 0 4px;
+  padding: 10px 12px;
+  border-radius: var(--nexus-radius-sm, 10px);
+  border: 1px dashed hsla(210, 40%, 70%, 0.25);
+  background: hsla(210, 30%, 20%, 0.25);
+}
+.recipe-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: hsl(195, 100%, 70%);
+}
+.recipe-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 12.5px;
+  border-top: 1px solid hsla(210, 40%, 70%, 0.08);
+}
+.recipe-row:first-of-type { border-top: none; }
+.recipe-k { opacity: .6; white-space: nowrap; }
+.recipe-v { text-align: right; word-break: break-word; }
+
+/* Network scan results */
+.scan-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  opacity: .85;
+}
+.scan-result-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  font-size: 13px;
+  border-bottom: 1px solid hsla(210, 40%, 70%, 0.08);
+}
+.scan-ip { font-family: ui-monospace, Menlo, Consolas, monospace; min-width: 116px; }
+.scan-host { flex: 1; opacity: .7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scan-badge {
+  font-size: 10.5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: hsla(140, 70%, 45%, 0.18);
+  color: #7ee0a0;
+  white-space: nowrap;
+}
+.scan-result-row .btn-secondary { padding: 5px 10px; font-size: 12px; }
+[dir="rtl"] .recipe-v { text-align: left; }
+
+/* --- Crisper text rendering ------------------------------------------ */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+
+/* =====================================================================
+   MOBILE / PHONE RESPONSIVE  (added for small-screen usability)
+   Sidebar becomes a bottom tab bar; content goes full-width.
+   ===================================================================== */
+@media (max-width: 640px) {
+  :root { --nexus-header-h: 52px; }
+
+  /* Sidebar -> fixed bottom tab bar */
+  .nexus-sidebar {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 60px;
+    flex-direction: row;
+    gap: 2px;
+    padding: 4px 6px;
+    border-right: none;
+    border-top: 1px solid var(--nexus-border);
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: max(4px, env(safe-area-inset-bottom));
+    height: calc(60px + env(safe-area-inset-bottom));
+  }
+  .nexus-sidebar::-webkit-scrollbar { display: none; }
+
+  .nav-item {
+    flex: 1 0 auto;
+    min-width: 56px;
+    padding: 6px 8px;
+    gap: 3px;
+    font-size: 10px;
+  }
+  .nav-item .nav-icon { font-size: 20px; }
+  .nav-label { display: block; font-size: 10px; }
+
+  /* Main content fills the screen, above the bottom bar */
+  .nexus-main {
+    left: 0;
+    right: 0;
+    top: var(--nexus-header-h);
+    bottom: calc(60px + env(safe-area-inset-bottom));
+  }
+  .nexus-page { padding: 16px 14px; gap: 14px; }
+
+  /* Page header stacks */
+  .page-header { flex-wrap: wrap; gap: 8px; }
+  .page-header-right { width: 100%; }
+  .page-title { font-size: 20px; }
+  .page-subtitle { font-size: 12px; }
+
+  /* All card grids -> single column on phones */
+  .module-grid,
+  .ov-grid,
+  .ov-stats,
+  .device-grid,
+  #net-device-grid,
+  .scan-results,
+  .assist-list { grid-template-columns: 1fr !important; }
+  .ov-stats { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Chat fills available height; input bar sticks to bottom of content */
+  .chat-messages { padding: 12px 12px 8px; }
+  .chat-input-bar {
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 10px 12px;
+    position: sticky;
+    bottom: 0;
+  }
+  .chat-input-bar textarea,
+  .chat-input-bar input[type="text"] {
+    font-size: 16px; /* prevents iOS auto-zoom on focus */
+  }
+
+  /* Settings drawer goes near full-width */
+  .settings-drawer { width: 100% !important; max-width: 100% !important; }
+
+  /* Robot face + call screens scale down to fit */
+  .face-stage, .call-stage { transform: none; }
+
+  /* Tables and code blocks scroll instead of overflowing */
+  .nxmd pre.nxmd-pre { font-size: 12px; }
+  table { display: block; overflow-x: auto; }
+}
+
+/* Tiny phones (≤380px): tighten the tab bar labels */
+@media (max-width: 380px) {
+  .nav-item { min-width: 48px; font-size: 9px; }
+  .nav-label { font-size: 9px; }
+  .ov-stats { grid-template-columns: 1fr !important; }
+}

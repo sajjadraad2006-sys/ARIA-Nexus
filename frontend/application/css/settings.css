@@ -1,0 +1,238 @@
+/* =====================================================================
+   ARIA NEXUS — settings.css
+   Customization drawer + the override variables it drives.
+   Loaded AFTER nexus.css so its overrides win.
+   ===================================================================== */
+
+/* ---- variables driven by js/settings.js ---- */
+.glass, .glass-form {
+  -webkit-backdrop-filter: blur(var(--nx-glass-blur, 20px)) saturate(180%);
+  backdrop-filter: blur(var(--nx-glass-blur, 20px)) saturate(180%);
+}
+#dashboard { zoom: var(--nx-ui-scale, 1); }
+
+/* ---- texture toggles (body classes) ---- */
+body.nx-no-depth .nx-depth { display: none !important; }
+body.nx-no-grid  .nx-grid  { display: none !important; }
+body.nx-no-grain .nx-grain { display: none !important; }
+
+/* ---- reduced motion (manual switch) ---- */
+body.nx-reduce-motion *,
+body.nx-reduce-motion *::before,
+body.nx-reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+/* ---- header gear button just reuses .btn-icon ---- */
+
+/* ---- scrim ---- */
+.settings-scrim {
+  position: fixed; inset: 0; z-index: 9500;
+  background: hsla(222, 60%, 3%, 0.55);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.28s ease;
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+.settings-scrim.open { opacity: 1; pointer-events: auto; }
+
+/* ---- drawer ---- */
+.settings-drawer {
+  position: fixed; top: 0; right: 0; z-index: 9600;
+  width: 340px; max-width: 90vw; height: 100%;
+  background: linear-gradient(180deg, hsla(222,40%,12%,0.96), hsla(222,44%,8%,0.98));
+  border-left: 1px solid var(--nexus-border);
+  box-shadow: -24px 0 60px hsla(222,60%,2%,0.5);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(180%);
+  transform: translateX(104%);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.settings-drawer.open { transform: translateX(0); }
+
+.settings-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px; border-bottom: 1px solid var(--nexus-border);
+}
+.settings-head h2 {
+  font-size: 17px; font-weight: 600; letter-spacing: 0.5px;
+  background: linear-gradient(135deg, var(--nexus-accent-1), var(--nexus-accent-2));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+.settings-body {
+  padding: 18px 20px 28px; overflow-y: auto; display: flex;
+  flex-direction: column; gap: 22px;
+}
+
+.set-group { display: flex; flex-direction: column; gap: 10px; }
+.set-label {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px;
+  color: var(--nexus-text-2); display: flex; justify-content: space-between;
+  align-items: center;
+}
+.set-val { color: var(--nexus-accent-1); font-weight: 600; letter-spacing: 0; text-transform: none; }
+
+/* swatches */
+.theme-swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.theme-swatch {
+  height: 44px; border-radius: var(--nexus-radius-sm);
+  border: 2px solid transparent; cursor: pointer; position: relative;
+  background: var(--sw, #222); transition: transform 0.15s ease, border-color 0.15s ease;
+  overflow: hidden;
+}
+.theme-swatch::after {
+  content: attr(data-name); position: absolute; left: 0; right: 0; bottom: 0;
+  font-size: 9px; text-align: center; padding: 2px 0; color: #fff;
+  background: hsla(222,50%,4%,0.45); letter-spacing: 0.4px;
+}
+.theme-swatch:hover { transform: translateY(-2px); }
+.theme-swatch.active { border-color: #fff; box-shadow: 0 0 0 2px hsla(0,0%,100%,0.25); }
+
+/* range sliders */
+.set-range {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 6px;
+  border-radius: 6px; outline: none;
+  background: linear-gradient(90deg, var(--nexus-accent-1), var(--nexus-accent-2));
+  opacity: 0.85;
+}
+.set-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 18px; height: 18px;
+  border-radius: 50%; background: #fff; cursor: pointer;
+  box-shadow: 0 2px 8px hsla(222,60%,2%,0.5);
+}
+.set-range::-moz-range-thumb {
+  width: 18px; height: 18px; border: none; border-radius: 50%;
+  background: #fff; cursor: pointer;
+}
+
+/* toggle switches */
+.set-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; color: var(--nexus-text-1); cursor: pointer;
+  padding: 4px 0;
+}
+.set-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.set-toggle .switch {
+  width: 40px; height: 22px; border-radius: 22px; position: relative;
+  background: hsla(210,20%,40%,0.35); transition: background 0.2s ease; flex: none;
+}
+.set-toggle .switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+  border-radius: 50%; background: #fff; transition: transform 0.2s ease;
+}
+.set-toggle input:checked + .switch {
+  background: linear-gradient(135deg, var(--nexus-accent-1), var(--nexus-accent-2));
+}
+.set-toggle input:checked + .switch::after { transform: translateX(18px); }
+.set-toggle input:focus-visible + .switch { outline: 2px solid var(--nexus-accent-1); outline-offset: 2px; }
+
+#settings-reset { margin-top: 4px; }
+
+/* ---- sectioned settings: tabs + panels ---- */
+.set-tabs {
+  display: flex; gap: 6px; position: sticky; top: 0; z-index: 2;
+  padding: 4px; margin: -4px -4px 4px; border-radius: var(--nexus-radius-sm);
+  background: hsla(210,24%,12%,0.55); backdrop-filter: blur(8px);
+  flex-wrap: wrap;
+}
+.set-tab {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column;
+  align-items: center; gap: 3px; padding: 8px 6px; cursor: pointer;
+  border: 1px solid transparent; border-radius: var(--nexus-radius-sm);
+  background: transparent; color: var(--nexus-text-2);
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.3px; line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.set-tab > span { font-size: 10.5px; }
+.set-tab:hover { color: var(--nexus-text-1); background: hsla(210,24%,30%,0.25); }
+.set-tab.active {
+  color: #fff; border-color: hsla(0,0%,100%,0.14);
+  background: linear-gradient(135deg, hsla(var(--nexus-accent-1-hsl, 195,100%,55%),0.22), hsla(210,24%,24%,0.4));
+}
+
+.set-panel { display: none; flex-direction: column; gap: 22px; animation: setPanelIn 0.2s ease; }
+.set-panel.active { display: flex; }
+@keyframes setPanelIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* per-control helper text + status line */
+.set-hint {
+  margin: 2px 0 0; font-size: 11px; line-height: 1.5;
+  color: var(--nexus-text-2); opacity: 0.85;
+}
+.set-status {
+  margin: 0; font-size: 11px; color: var(--nexus-accent-1);
+  min-height: 14px; letter-spacing: 0.2px;
+}
+
+/* selects + rows */
+.set-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  font-size: 13px; color: var(--nexus-text-1); padding: 2px 0;
+}
+.set-select {
+  flex: 0 1 58%; max-width: 58%; padding: 7px 10px;
+  border-radius: var(--nexus-radius-sm); cursor: pointer;
+  background: hsla(210,24%,14%,0.7); color: var(--nexus-text-1);
+  border: 1px solid hsla(0,0%,100%,0.1); font-size: 12.5px;
+  outline: none; transition: border-color 0.15s ease;
+}
+.set-select:focus { border-color: var(--nexus-accent-1); }
+.set-select option { background: #15202b; color: #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-drawer, .settings-scrim { transition: none; }
+}
+
+/* =====================================================================
+   NEXUS additions — HA custom devices + Knowledge memory viewer
+   ===================================================================== */
+.ha-custom-section { margin-top: 22px; }
+.ha-custom-title {
+  font-size: 0.95rem;
+  margin: 0 0 10px;
+  color: var(--nexus-text-dim, #9fb2d6);
+  letter-spacing: 0.04em;
+}
+#ha-virtual-form .form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+#ha-virtual-form .form-optional {
+  font-size: 0.78rem;
+  opacity: 0.6;
+  font-weight: 400;
+}
+
+/* Knowledge: inline "what ARIA remembers" panel */
+.rag-doc-memory-panel {
+  margin-top: 10px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.12);
+  padding-top: 10px;
+}
+.rag-doc-memory-panel .memory-head {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--nexus-text-dim, #8da0c4);
+  margin-bottom: 6px;
+}
+.rag-doc-memory-panel .memory-text {
+  max-height: 280px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  background: rgba(8, 12, 24, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 0;
+  color: var(--nexus-text, #d8e2f5);
+}

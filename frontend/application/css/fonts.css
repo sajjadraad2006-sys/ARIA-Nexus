@@ -1,0 +1,40 @@
+/* =====================================================================
+   ARIA NEXUS — Bundled fonts (100%% local, no CDN, works fully offline)
+   ---------------------------------------------------------------------
+   These woff fonts ship INSIDE the app (assets/fonts/), so typography is
+   identical on every machine even with no internet and nothing installed.
+
+   • 'Nexus Sans'  — UI text  (Noto Sans, variable weight 100–900, Latin)
+   • 'Nexus Sans'  — Arabic   (Noto Sans Arabic, via unicode-range)
+   • 'Nexus Mono'  — code / clocks / metrics (DejaVu Sans Mono)
+
+   NEXT AGENT: to swap in premium display fonts (e.g. Space Grotesk /
+   JetBrains Mono), drop their .woff/.woff2 into assets/fonts/ and add
+   @font-face blocks here, OR just rename the files to match below.
+   ===================================================================== */
+
+@font-face {
+  font-family: 'Nexus Sans';
+  src: url('../assets/fonts/nexus-sans.woff') format('woff');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Arabic coverage for chat / RTL content — same family, range-scoped */
+@font-face {
+  font-family: 'Nexus Sans';
+  src: url('../assets/fonts/nexus-arabic.woff') format('woff');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF, U+200C-200F;
+}
+
+@font-face {
+  font-family: 'Nexus Mono';
+  src: url('../assets/fonts/nexus-mono.woff') format('woff');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}

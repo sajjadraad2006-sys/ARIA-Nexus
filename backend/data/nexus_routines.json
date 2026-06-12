@@ -1,0 +1,79 @@
+[
+  {
+    "id": "morning",
+    "name": "صباح الخير",
+    "triggers": [
+      "صباح الخير",
+      "صباح النور",
+      "good morning"
+    ],
+    "steps": [
+      {
+        "type": "say",
+        "text": "صباح الخير! هذا ملخص يومك."
+      },
+      {
+        "type": "weather"
+      },
+      {
+        "type": "news"
+      },
+      {
+        "type": "schedule"
+      },
+      {
+        "type": "scene",
+        "entity": "scene.morning"
+      }
+    ]
+  },
+  {
+    "id": "goodnight",
+    "name": "تصبح على خير",
+    "triggers": [
+      "تصبح على خير",
+      "ليلة سعيدة",
+      "good night"
+    ],
+    "steps": [
+      {
+        "type": "say",
+        "text": "تصبح على خير، رح أطفي الأضواء."
+      },
+      {
+        "type": "ha",
+        "domain": "light",
+        "service": "turn_off",
+        "target": "all"
+      }
+    ]
+  },
+  {
+    "id": "leaving",
+    "name": "طالع برة",
+    "triggers": [
+      "طالع برة",
+      "راح اطلع",
+      "i'm leaving",
+      "leaving home"
+    ],
+    "steps": [
+      {
+        "type": "say",
+        "text": "بأمان الله، رح أطفي الأجهزة."
+      },
+      {
+        "type": "ha",
+        "domain": "light",
+        "service": "turn_off",
+        "target": "all"
+      },
+      {
+        "type": "ha",
+        "domain": "fan",
+        "service": "turn_off",
+        "target": "all"
+      }
+    ]
+  }
+]

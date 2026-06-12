@@ -1,0 +1,139 @@
+/* =====================================================================
+   ARIA NEXUS — textures.css
+   Adds depth + tactile surface to the UI. 100%% LOCAL:
+     - Film grain is an inline SVG feTurbulence data-URI (no image files).
+     - Ambient glows + grid are CSS gradients.
+     - Motion uses transform/opacity ONLY (GPU-friendly, 60fps).
+   Also styles the SVG icon system from icons.js.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------
+   1) Ambient depth glows  (behind all content, z-index:-2)
+   --------------------------------------------------------------- */
+.nx-depth {
+  position: fixed;
+  inset: -20vmax;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(38vmax 38vmax at 18% 12%, hsla(195, 100%, 55%, 0.16), transparent 60%),
+    radial-gradient(42vmax 42vmax at 86% 88%, hsla(265, 80%, 65%, 0.16), transparent 62%),
+    radial-gradient(34vmax 34vmax at 92% 8%, hsla(150, 70%, 50%, 0.10), transparent 60%);
+  will-change: transform;
+  animation: nx-depth-drift 28s ease-in-out infinite alternate;
+}
+
+@keyframes nx-depth-drift {
+  from { transform: translate3d(-2.2%, -1.6%, 0) scale(1.02); }
+  to   { transform: translate3d(2.6%, 2.2%, 0) scale(1.08); }
+}
+
+/* ---------------------------------------------------------------
+   2) Fine grid weave  (behind content, z-index:-1)
+   --------------------------------------------------------------- */
+.nx-grid {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.45;
+  background-image:
+    linear-gradient(hsla(210, 40%, 70%, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, hsla(210, 40%, 70%, 0.035) 1px, transparent 1px);
+  background-size: 44px 44px, 44px 44px;
+  -webkit-mask-image: radial-gradient(circle at 50% 40%, #000 0%, transparent 78%);
+          mask-image: radial-gradient(circle at 50% 40%, #000 0%, transparent 78%);
+}
+
+/* ---------------------------------------------------------------
+   3) Film grain  (ON TOP of everything, click-through)
+   feTurbulence noise rendered once into an inline SVG data-URI.
+   --------------------------------------------------------------- */
+.nx-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  will-change: transform;
+  animation: nx-grain-shift 5.5s steps(6) infinite;
+}
+
+@keyframes nx-grain-shift {
+  0%   { transform: translate3d(0, 0, 0); }
+  20%  { transform: translate3d(-3%, 2%, 0); }
+  40%  { transform: translate3d(2%, -3%, 0); }
+  60%  { transform: translate3d(-2%, -2%, 0); }
+  80%  { transform: translate3d(3%, 1%, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+/* ---------------------------------------------------------------
+   4) Glass surface micro-texture
+   A faint diagonal sheen so panels feel like frosted glass,
+   not flat fills. Applied via the existing .glass class.
+   --------------------------------------------------------------- */
+.glass::after,
+.glass-form::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, hsla(0, 0%, 100%, 0.05) 0%, transparent 32%),
+    radial-gradient(120% 80% at 50% -20%, hsla(0, 0%, 100%, 0.04), transparent 60%);
+  opacity: 0.9;
+}
+/* Ensure glass panels can host the ::after overlay. */
+.glass, .glass-form { position: relative; }
+
+/* ---------------------------------------------------------------
+   5) SVG icon system (from icons.js)
+   --------------------------------------------------------------- */
+.nx-icon {
+  display: inline-block;
+  vertical-align: -0.18em;
+  flex: 0 0 auto;
+}
+.nx-i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.nx-i .nx-icon { vertical-align: middle; }
+
+/* Nav rail icons */
+.nav-icon { display: inline-flex; align-items: center; justify-content: center; }
+.nav-icon .nx-icon { width: 24px; height: 24px; }
+
+/* Monitor stat-card icons sit in a rounded tile */
+.stat-icon { display: inline-flex; align-items: center; justify-content: center; }
+.stat-icon .nx-icon { width: 22px; height: 22px; }
+
+/* IoT entity / device icons */
+.entity-icon .nx-icon { width: 20px; height: 20px; }
+
+/* Buttons that carry an icon + label: align nicely */
+button .nx-icon { vertical-align: -0.16em; margin-right: 6px; }
+button .nx-icon:only-child { margin-right: 0; }
+
+/* Language chip */
+.nx-lang {
+  display: inline-block;
+  vertical-align: middle;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px hsla(0, 0%, 0%, 0.4);
+}
+.voice-lang-flag { display: inline-flex; align-items: center; }
+
+/* ---------------------------------------------------------------
+   6) Respect reduced-motion: freeze ambient/grain animation
+   --------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .nx-depth, .nx-grain { animation: none; }
+}
