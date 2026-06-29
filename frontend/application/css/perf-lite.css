@@ -1,0 +1,104 @@
+/* =====================================================================
+   ARIA NEXUS — perf-lite.css   ("Lite / Jetson mode")
+   Activated by  <body class="nx-lite">  (auto on low-power devices, or
+   via Settings → Appearance → Lite mode).
+
+   Goal: keep the look recognizable but remove the GPU-expensive effects
+   that hurt embedded boards like the Jetson Orin Nano:
+     • backdrop-filter blur  (the single biggest cost — a full-screen
+       gaussian blur recomputed every frame behind every glass panel)
+     • continuously animated ambient / grain / grid layers
+     • saturate() filters and decorative ::after sheens
+     • large box-shadows + will-change layer promotion
+   Loaded LAST so these win over the design system.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   1. KILL BACKDROP BLUR  (biggest win)
+   Replace translucent + blurred glass with a cheap, near-opaque solid
+   fill that reads the same against the dark background.
+--------------------------------------------------------------------- */
+.nx-lite .glass,
+.nx-lite .glass-form,
+.nx-lite .nexus-header,
+.nx-lite .nexus-sidebar,
+.nx-lite .module-card,
+.nx-lite #assistant-call,
+.nx-lite .settings-drawer,
+.nx-lite .settings-scrim,
+.nx-lite .set-tabs,
+.nx-lite .face-stage,
+.nx-lite .bubble-body {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Compensate for the lost blur with slightly more opaque surfaces so
+   text stays readable without the frosted effect. */
+.nx-lite .glass,
+.nx-lite .glass-form,
+.nx-lite .module-card {
+  background: hsl(222, 38%, 12%);
+}
+.nx-lite .nexus-header  { background: hsl(222, 42%, 9%); }
+.nx-lite .nexus-sidebar { background: hsl(222, 42%, 8%); }
+
+/* The frosted glass sheen overlay is decorative — drop it. */
+.nx-lite .glass::after,
+.nx-lite .glass-form::after { display: none !important; }
+
+/* ---------------------------------------------------------------------
+   2. REMOVE AMBIENT / GRAIN / GRID DECOR LAYERS
+   Full-screen animated paint layers are pure overhead on the Jetson.
+--------------------------------------------------------------------- */
+.nx-lite .nx-depth,
+.nx-lite .nx-grid,
+.nx-lite .nx-grain { display: none !important; }
+
+/* ---------------------------------------------------------------------
+   3. FREEZE CONTINUOUS / INFINITE ANIMATIONS
+   One-shot UI transitions (page/card reveal) still feel fine; it's the
+   looping ambient glows, pulses and spins that waste cycles when idle.
+--------------------------------------------------------------------- */
+.nx-lite .nx-depth,
+.nx-lite .nx-grain,
+.nx-lite .aria-logo-ring::before,   /* spinning conic-gradient ring */
+.nx-lite .acall-title .acall-led,   /* call status pulse */
+.nx-lite .btn-stop,                 /* chat barge-in pulse */
+.nx-lite #wake-indicator.armed,
+.nx-lite .face-stage::after {
+  animation: none !important;
+}
+
+/* ---------------------------------------------------------------------
+   4. DROP HEAVY SHADOWS + LAYER PROMOTION
+   Big blurred box-shadows are also rasterization cost; trim them and
+   release the will-change GPU layers we no longer animate.
+--------------------------------------------------------------------- */
+.nx-lite .glass,
+.nx-lite .glass-form,
+.nx-lite .module-card,
+.nx-lite .btn-primary,
+.nx-lite #btn-enter {
+  box-shadow: none !important;
+}
+.nx-lite .nx-depth,
+.nx-lite .nx-grain,
+.nx-lite .splash-progress-fill,
+.nx-lite #particles-canvas {
+  will-change: auto !important;
+}
+
+/* ---------------------------------------------------------------------
+   5. CHEAPER SCROLLING / TEXT
+   Disable sub-pixel smoothing cost is negligible, but capping transitions
+   on hover avoids repaint storms when a finger/cursor sweeps the grid.
+--------------------------------------------------------------------- */
+.nx-lite .module-card { transition: border-color 0.15s ease; }
+.nx-lite .module-card:hover { transform: none; }
+
+/* ---------------------------------------------------------------------
+   6. SETTINGS DRAWER: solid panel instead of translucent blur sheet.
+--------------------------------------------------------------------- */
+.nx-lite .settings-drawer { background: hsl(222, 40%, 10%); }
+.nx-lite .settings-scrim  { background: hsla(222, 47%, 3%, 0.6); }

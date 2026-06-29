@@ -1,5 +1,11 @@
 {
   "wake": {
-    "threshold": 0.02
+    "threshold": 0.02,
+    "device": 25
+  },
+  "llm": {
+    "temperature": 0.6,
+    "top_p": 0.95,
+    "max_tokens": 0
   }
 }

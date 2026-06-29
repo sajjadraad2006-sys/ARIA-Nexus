@@ -1,0 +1,97 @@
+ARIA Robot & Navigation Knowledge
+===================================
+
+ROBOT HARDWARE
+--------------
+ARIA runs on NVIDIA Jetson Orin Nano, a powerful edge AI computer.
+Specifications:
+  - CPU: 6-core ARM Cortex-A78AE
+  - GPU: 1024-core NVIDIA Ampere GPU with 32 Tensor Cores
+  - RAM: 8GB LPDDR5 unified memory
+  - Storage: NVMe SSD for fast model loading
+  - Camera: USB or CSI camera for computer vision
+  - Connectivity: Wi-Fi, Ethernet, Bluetooth, USB
+
+COMPUTER VISION
+---------------
+ARIA uses YOLO (You Only Look Once) for real-time object detection.
+YOLO can detect and classify hundreds of objects simultaneously.
+Detectable objects include:
+  - People and animals
+  - Furniture (chair, table, sofa, bed)
+  - Electronics (TV, laptop, phone, remote)
+  - Kitchen items (cup, bottle, bowl, microwave, refrigerator)
+  - Vehicles (car, bicycle, motorcycle)
+  - Doors, windows, and structural elements
+
+SPATIAL MEMORY
+--------------
+ARIA remembers where it has seen things using vector embeddings.
+When ARIA sees something notable, it stores:
+  - A description of the scene
+  - The timestamp of the observation
+  - The primary landmark (most notable object)
+  - The mission context (what it was doing)
+
+This allows ARIA to answer questions like:
+  "Where did you last see the red chair?"
+  "Have you been to the kitchen recently?"
+  "What obstacles are near the entrance?"
+
+NAVIGATION MODES
+----------------
+1. Explore Mode: ARIA roams and maps its environment
+2. Deliver Mode: ARIA carries an item to a specified location
+3. Return Mode: ARIA navigates back to its charging dock
+4. Guard Mode: ARIA monitors an area and reports unusual events
+
+OBSTACLE AVOIDANCE
+------------------
+ARIA detects obstacles using:
+  - Camera (visual obstacle detection via YOLO)
+  - Ultrasonic sensors (proximity detection)
+  - Infrared sensors (cliff and drop detection)
+
+When an obstacle is detected, ARIA:
+1. Stops immediately
+2. Assesses the obstacle type (static vs moving)
+3. Plans an alternative path
+4. Reports the obstacle to the dashboard
+
+DELIVERY SYSTEM
+---------------
+For delivery missions:
+1. User specifies destination room/location via dashboard
+2. ARIA confirms understanding and starts navigation
+3. Real-time video feed shown on dashboard
+4. ARIA announces arrival at destination via TTS
+5. ARIA waits for item collection confirmation
+6. ARIA returns to base automatically
+
+ROBOT STATUS MONITORING
+-----------------------
+The dashboard shows live robot status:
+  - Current mission and status
+  - Battery level and charging status
+  - Camera feed (live video)
+  - Spatial memory map (recent locations)
+  - Last detected objects
+  - Navigation log
+
+SAFETY FEATURES
+---------------
+- Emergency stop button on dashboard (immediately halts all movement)
+- Cliff detection prevents falling down stairs
+- Overheating protection (monitors Jetson temperature)
+- Manual override available at any time
+- Robot stops if camera feed is lost
+- Maximum speed limit enforced in confined spaces
+
+INTEGRATION WITH SMART HOME
+-----------------------------
+While navigating, ARIA can:
+- Turn on lights as it enters rooms
+- Announce its location via speakers
+- Report sensor readings from rooms it visits
+- Interact with smart locks and doors
+- Alert if it detects unusual activity

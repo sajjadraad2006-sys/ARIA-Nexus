@@ -90,6 +90,9 @@
   /* ---- audio analyser for speaking waveform ---- */
   function ensureAC() {
     if (ac) return ac;
+    // Reuse the ONE shared AudioContext so the call screen never adds to (or
+    // leaks from) the browser's per-tab AudioContext ceiling.
+    if (window.NexusAudio && window.NexusAudio.available) { ac = window.NexusAudio.ctx(); return ac; }
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     try { ac = new AC(); } catch (e) { ac = null; }
@@ -153,8 +156,9 @@
   function startBargeMonitor() {
     if (bargeStream) return;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
-    var AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
+    var hasAudio = (window.NexusAudio && window.NexusAudio.available) ||
+                   window.AudioContext || window.webkitAudioContext;
+    if (!hasAudio) return;
     var thr = vadCfg('bargeInThreshold', 0.060);
     var needMs = vadCfg('bargeInMs', 350);
     // echoCancellation is essential here so ARIA's OWN voice from the speakers
@@ -168,13 +172,20 @@
       }
       bargeStream = stream;
       try {
-        bargeAC = new AC();
-        if (bargeAC.state === 'suspended') { try { bargeAC.resume(); } catch (e) {} }
-        bargeSrc = bargeAC.createMediaStreamSource(stream);
-        bargeAnalyser = bargeAC.createAnalyser();
-        bargeAnalyser.fftSize = 512;
+        if (window.NexusAudio && window.NexusAudio.available) {
+          var wired = window.NexusAudio.analyser(stream);
+          if (!wired) { stopBargeMonitor(); return; }
+          bargeSrc = wired.source; bargeAnalyser = wired.analyser;
+        } else {
+          var AC = window.AudioContext || window.webkitAudioContext;
+          bargeAC = new AC();
+          if (bargeAC.state === 'suspended') { try { bargeAC.resume(); } catch (e) {} }
+          bargeSrc = bargeAC.createMediaStreamSource(stream);
+          bargeAnalyser = bargeAC.createAnalyser();
+          bargeAnalyser.fftSize = 512;
+          bargeSrc.connect(bargeAnalyser);
+        }
         bargeData = new Uint8Array(bargeAnalyser.fftSize);
-        bargeSrc.connect(bargeAnalyser);
       } catch (e) { stopBargeMonitor(); return; }
       var voiceMs = 0, last = Date.now();
       function tick() {
@@ -235,6 +246,7 @@
 
   function listenOnce() {
     if (ended || muted) return;
+    (window.NexusDebug&&NexusDebug.log)&&NexusDebug.log('CALL','listenOnce');
     setMode('listening');
     // VAD timing comes from mic.js defaults / window.NEXUS_VAD (backend config),
     // so endpointing is tuned in ONE place and never clips or cuts off early.
@@ -250,7 +262,8 @@
       return API.sttInference(blob).then(function (data) {
         if (ended) return;
         var text = (data && (data.text || data.transcription) || '').trim();
-        if (!text || text === '[BLANK_AUDIO]' || text.length < 2) { silenceRounds++; return loopOrEnd(); }
+        if (!text || text === '[BLANK_AUDIO]' || text.length < 2) { (window.NexusDebug&&NexusDebug.log)&&NexusDebug.log('CALL','stt.blank',{text:text}); silenceRounds++; return loopOrEnd(); }
+        (window.NexusDebug&&NexusDebug.log)&&NexusDebug.log('CALL','stt.text',{text:text.slice(0,60),len:text.length});
         silenceRounds = 0;
         caption('user', text);
         return converse(text).then(function (ok) {
@@ -298,6 +311,7 @@
   function openCall() {
     ensure();
     if (opened) return Promise.resolve();
+    (window.NexusDebug&&NexusDebug.log)&&NexusDebug.log('CALL','open');
     opened = true; ended = false; muted = false; silenceRounds = 0; level = 0;
     history = [];
     if (els.root) { els.root.classList.add('open'); els.root.setAttribute('aria-hidden', 'false'); }
@@ -315,6 +329,7 @@
 
   function closeCall() {
     if (!opened) { return; }
+    (window.NexusDebug&&NexusDebug.log)&&NexusDebug.log('CALL','close');
     ended = true; opened = false;
     if (micCtrl) { try { micCtrl.cancel(); } catch (e) {} micCtrl = null; }
     stopBargeMonitor();

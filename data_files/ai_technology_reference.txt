@@ -1,0 +1,115 @@
+AI Technology Reference — ARIA System Components
+==================================================
+
+LARGE LANGUAGE MODELS (LLM)
+----------------------------
+ARIA uses Qwen2.5-3B, developed by Alibaba Cloud.
+- Architecture: Transformer decoder (GPT-style)
+- Parameters: 3 billion
+- Context window: 32,768 tokens
+- Languages: Excellent Arabic and English support
+- Format: GGUF (quantized for CPU/GPU inference)
+- Runtime: llama.cpp (optimized for Jetson ARM/GPU)
+- Quantization: Q4_K_M (good balance of size vs quality)
+
+How LLMs Work:
+LLMs predict the next token based on all previous tokens.
+They are trained on massive datasets of text from the internet.
+Through fine-tuning, they learn to follow instructions.
+ARIA uses a system prompt to define ARIA's personality and capabilities.
+
+SPEECH RECOGNITION (Whisper)
+------------------------------
+Whisper is OpenAI's open-source automatic speech recognition model.
+ARIA uses whisper.cpp — a C++ port optimized for edge devices.
+
+Whisper Model Sizes:
+  - tiny   (~75MB)  — fastest, lowest accuracy
+  - base   (~145MB) — good for simple commands
+  - small  (~488MB) — balanced speed/accuracy
+  - medium (~1.5GB) — good accuracy
+  - large-v3        (~3GB) — highest accuracy
+  - large-v3-turbo  (~1.5GB) — best speed/accuracy tradeoff ✓ ARIA uses this
+
+How Whisper Works:
+1. Audio is converted to a mel spectrogram (visual representation of sound)
+2. An encoder processes the spectrogram into embeddings
+3. A decoder generates text tokens from the embeddings
+4. Output is the transcribed text
+
+TEXT-TO-SPEECH (Piper TTS)
+---------------------------
+Piper is a fast, local neural text-to-speech system.
+It runs entirely on CPU and is very fast on Jetson hardware.
+
+ARIA voices available:
+  Arabic: ar_JO-kareem-medium (Jordanian male voice)
+  English: en_GB-semaine-medium (British female voice)
+
+Piper uses VITS (Variational Inference with adversarial Training for end-to-end TTS).
+The model converts text directly to audio waveform in one neural pass.
+
+EMBEDDINGS AND VECTOR SEARCH
+------------------------------
+ARIA uses sentence-transformers for creating embeddings.
+Model: all-MiniLM-L6-v2
+
+How embeddings work:
+- Text is converted to a numerical vector (list of 384 numbers)
+- Similar texts produce similar vectors
+- "What is the temperature?" and "How hot is it?" will have similar vectors
+- ChromaDB stores these vectors and finds the closest matches
+
+ChromaDB:
+- Embedded database (no separate server needed)
+- Stores vectors + original text + metadata
+- Uses HNSW (Hierarchical Navigable Small World) algorithm for fast search
+- ARIA uses COSINE similarity for relevance s
+RETRIEVAL-AUGMENTED GENERATION (RAG)
+--------------------------------------
+RAG combines search (retrieval) with AI generation.
+
+Process:
+1. User asks: "What devices can ARIA control?"
+2. The question is converted to a vector embedding
+3. ChromaDB finds the most similar document chunks
+4. These chunks are added to the LLM prompt as context
+5. The LLM generates an answer based on the retrieved context
+
+Benefits of RAG:
+- AI can answer questions about specific, local knowledge
+- No need to retrain or fine-tune the model
+- Knowledge can be updated easily by adding/modifying files
+- Reduces hallucination by grounding responses in real documents
+
+OBJECT DETECTION (YOLO)
+--------------------------
+YOLO = You Only Look Once
+Real-time object detection algorithm.
+
+YOLO architecture:
+- Single neural network processes the entire image at once
+- Divides image into a grid
+- Each cell predicts bounding boxes and class probabilities
+- Fast enough for real-time video (30+ FPS)
+
+ARIA uses YOLO for:
+- Detecting obstacles during navigation
+- Identifying objects in rooms
+- Recognizing people and animals
+- Logging environmental observations to spatial memory
+
+HARDWARE ACCELERATION
+----------------------
+Jetson Orin Nano GPU specifications:
+- Architecture: NVIDIA Ampere
+- CUDA cores: 1024
+- Tensor Cores: 32 (for AI inference acceleration)
+- Memory: Shared with CPU (unified memory architecture)
+
+Workload distribution in ARIA:
+- LLM inference: GPU (llama.cpp with CUDA)
+- Whisper inference: GPU (whisper.cpp with CUDA)
+- Piper TTS: CPU (fast enough without GPU)
+- Embeddings (RAG): CPU (to leave GPU for LLM/Whisper)
+- YOLO detection: GPU (real-time requirement)

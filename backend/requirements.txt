@@ -15,7 +15,7 @@ psutil>=5.9.0
 pyyaml>=6.0
 
 # --- Audio & Voice ---
-openwakeword>=0.5.1
+openwakeword==0.4.0
 sounddevice>=0.4.6
 piper-tts>=1.2.0
 

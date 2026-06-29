@@ -110,8 +110,9 @@ ALL_WORDS = ["all", "everything", "كل", "الكل", "جميع", "كلهن", "�
 
 # device alias -> HA domain.  Order matters (first match wins for domain).
 DOMAIN_ALIASES = [
-    ("light",   ["light", "lights", "lamp", "ضوء", "الضوء", "ضو", "الضو", "لمبه",
-                 "لمبة", "ليت", "نور", "النور", "اضاءه", "الاضاءه", "ابليكه"]),
+    ("light",   ["light", "lights", "lamp", "led", "leds", "ضوء", "الضوء", "ضو",
+                 "الضو", "لمبه", "لمبة", "ليت", "ليد", "ليدات", "الليد", "الليدات",
+                 "ليدز", "نور", "النور", "اضاءه", "الاضاءه", "ابليكه"]),
     ("fan",     ["fan", "مروحه", "المروحه", "بنكه", "پنکه"]),
     ("climate", ["climate", "ac", "air conditioner", "تكييف", "التكييف", "مكيف",
                  "المكيف", "اي سي", "كولر", "الكولر", "سبليت"]),
@@ -178,51 +179,135 @@ def _entity_friendly(st):
     return attrs.get("friendly_name") or st.get("entity_id", "")
 
 
-def _match_smart_home(text_norm, states):
-    """Resolve (service, [entity_ids], label) from an utterance, or None."""
-    service = _service_for(text_norm)
-    if not service:
-        return None
+# ── Filler words stripped when extracting the device-name hint ──
+# NOTE: No single-letter words here! A device may be named "A", "X", etc.
+_FILLER_WORDS = [
+    "the", "an", "my", "please", "can you", "could you",
+    "i want to", "i want", "want to",
+    "يا", "لو", "سمحت", "ممكن", "اريد", "ابي", "ابغا",
+    "ابغى", "اقدر", "لي", "هل", "رجاء", "خلي",
+]
 
+
+def _extract_device_hint(text_norm):
+    """Remove action keywords, filler words, and punctuation to isolate the device name.
+
+    Whisper often appends periods, commas, or other punctuation that would
+    prevent an exact match against a device name like 'Blue Fan'.
+    """
+    hint = text_norm
+    # Remove action keywords (longest first to avoid partial removal)
+    # Use whole-word matching to avoid stripping letters from device names
+    for words_list in [OFF_WORDS, ON_WORDS, TOGGLE_WORDS, ALL_WORDS]:
+        sorted_words = sorted([_norm(w) for w in words_list], key=len, reverse=True)
+        for w in sorted_words:
+            if " " in w:
+                # Multi-word phrase: replace exact substring
+                hint = hint.replace(w, " ")
+            else:
+                # Single word: whole-word boundary match
+                hint = re.sub(r"\b" + re.escape(w) + r"\b", " ", hint)
+    # Remove filler words (WHOLE WORDS only — never strip single letters
+    # like "a" from inside words such as "fan" → "f n")
+    for f in _FILLER_WORDS:
+        fn = _norm(f)
+        if fn:
+            if " " in fn:
+                hint = hint.replace(fn, " ")
+            else:
+                hint = re.sub(r"\b" + re.escape(fn) + r"\b", " ", hint)
+    # Remove punctuation (Whisper artifacts: periods, commas, quotes, etc.)
+    hint = re.sub(r"[.,!?;:\"'`\-–—…()\\[\\]{}]", " ", hint)
+    # Collapse whitespace
+    hint = re.sub(r"\s+", " ", hint).strip()
+    return hint
+
+
+def _search_all_devices(hint, ha_states_list, generic_devs):
+    """Search ALL devices (HA + generic) by name. Case-insensitive.
+
+    Returns a list of dicts: [{"source": "generic"|"ha", "device": ..., "channel": None|int, "label": str}]
+    Tries exact match first, then substring match.
+    """
+    if not hint:
+        return []
+    hint_lower = hint.lower().strip()
+    results = []
+
+    # ── 1) Exact name match (case-insensitive) ──
+    # Generic devices (includes virtual)
+    for gd in generic_devs:
+        gname = (gd.get("name") or "").lower().strip()
+        if gname and gname == hint_lower:
+            results.append({"source": "generic", "device": gd,
+                            "channel": None, "label": gd.get("name", gd["id"])})
+            return results  # exact match — done
+
+    # Generic multi-channel names
+    for gd in generic_devs:
+        if gd.get("device_type") == "multi_channel":
+            for i, ch_name in enumerate(gd.get("channels", []), 1):
+                if ch_name.lower().strip() == hint_lower:
+                    results.append({"source": "generic", "device": gd,
+                                    "channel": i, "label": ch_name})
+                    return results
+
+    # HA devices by friendly name
     controllable = {"light", "switch", "fan", "climate", "cover", "input_boolean"}
-    ents = [s for s in states
-            if (s.get("entity_id", "").split(".")[0] in controllable)]
+    for s in ha_states_list:
+        eid = s.get("entity_id", "")
+        if eid.split(".")[0] not in controllable:
+            continue
+        fname = _entity_friendly(s).lower().strip()
+        if fname and fname == hint_lower:
+            results.append({"source": "ha", "device": s,
+                            "channel": None, "label": _entity_friendly(s)})
+            return results
 
-    want_all = _has(text_norm, ALL_WORDS)
-
-    # 1) Try to match a specific entity by its friendly name appearing in text.
-    if not want_all:
+    # ── 2) Substring match (hint is contained in device name or vice versa) ──
+    if len(hint_lower) >= 1:
         best = None
-        best_len = 0
-        for s in ents:
-            fname = _norm(_entity_friendly(s))
-            if fname and len(fname) >= 3 and fname in text_norm and len(fname) > best_len:
-                best = s
-                best_len = len(fname)
-        if best is not None:
-            return service, [best["entity_id"]], _entity_friendly(best)
+        best_score = 0
+        # Generic devices
+        for gd in generic_devs:
+            gname = (gd.get("name") or "").lower().strip()
+            if not gname:
+                continue
+            if hint_lower in gname or gname in hint_lower:
+                score = len(gname) if gname in hint_lower else len(hint_lower)
+                if score > best_score:
+                    best = {"source": "generic", "device": gd,
+                            "channel": None, "label": gd.get("name", gd["id"])}
+                    best_score = score
+        # Generic multi-channel
+        for gd in generic_devs:
+            if gd.get("device_type") == "multi_channel":
+                for i, ch_name in enumerate(gd.get("channels", []), 1):
+                    cn = ch_name.lower().strip()
+                    if cn and (hint_lower in cn or cn in hint_lower):
+                        score = len(cn) if cn in hint_lower else len(hint_lower)
+                        if score > best_score:
+                            best = {"source": "generic", "device": gd,
+                                    "channel": i, "label": ch_name}
+                            best_score = score
+        # HA devices
+        for s in ha_states_list:
+            eid = s.get("entity_id", "")
+            if eid.split(".")[0] not in controllable:
+                continue
+            fname = _entity_friendly(s).lower().strip()
+            if not fname:
+                continue
+            if hint_lower in fname or fname in hint_lower:
+                score = len(fname) if fname in hint_lower else len(hint_lower)
+                if score > best_score:
+                    best = {"source": "ha", "device": s,
+                            "channel": None, "label": _entity_friendly(s)}
+                    best_score = score
+        if best:
+            results.append(best)
 
-    # 2) Match by domain alias keyword (e.g. "الضوء" -> light domain).
-    for domain, aliases in DOMAIN_ALIASES:
-        if _has(text_norm, aliases):
-            in_domain = [s["entity_id"] for s in ents
-                         if s.get("entity_id", "").startswith(domain + ".")]
-            if not in_domain:
-                # HA not reachable / no such entity: still report the domain so
-                # we can answer gracefully.
-                return service, [], domain
-            if want_all or len(in_domain) == 1:
-                label = domain + (" (all)" if (want_all and len(in_domain) > 1) else "")
-                return service, in_domain, label
-            # Multiple candidates and no "all": act on all of that domain anyway,
-            # which matches the common intent of "turn off the lights".
-            return service, in_domain, domain
-
-    # 3) Generic "turn everything off/on".
-    if want_all and ents:
-        return service, [e["entity_id"] for e in ents], "all devices"
-
-    return None
+    return results
 
 
 def _ar_action(service, ar=True):
@@ -234,162 +319,181 @@ def _ar_action(service, ar=True):
 
 
 def try_smart_home(text, states=None):
-    """Return a result dict if this looks like a smart-home command, else None."""
+    """Deterministic smart-home control — NO LLM dependency.
+
+    Flow:
+      1. Detect action (turn_on / turn_off / toggle) from keywords.
+      2. Extract device-name hint by stripping action + filler words.
+      3. Search ALL devices (HA + generic + virtual) case-insensitively.
+      4. If found → control directly and return confirmation.
+      5. If "all" keyword → control all devices of matched domain.
+      6. If nothing found → return "device not found" message.
+    """
     tn = _norm(text)
-    if not _service_for(tn):
+    service = _service_for(tn)
+    if not service:
         return None
+
+    ar = _is_arabic(text)
+    want_all = _has(tn, ALL_WORDS)
+
+    # Gather all device sources
     if states is None:
         states = ha_states()
-    match = _match_smart_home(tn, states)
-    ar = _is_arabic(text)
+    gdm = _get_generic_mgr()
+    gen_devs = []
+    if gdm:
+        try:
+            gen_devs = gdm.list_devices()
+        except Exception:
+            pass
 
-    # If HA matched, execute via Home Assistant
-    if match:
-        service, entity_ids, label = match
+    # Map service to generic action string
+    gen_action = "on" if service == "turn_on" else ("off" if service == "turn_off" else "toggle")
+    verb = _ar_action(service, ar)
 
-        if not entity_ids:
-            # HA domain matched but no entities — try generic devices first
-            generic_result = _try_generic_devices(tn, text)
-            if generic_result:
-                return generic_result
-            msg = ("ماكو جهاز \"" + str(label) + "\" متصل بالبيت الذكي حالياً."
-                   if ar else "No \"" + str(label) + "\" device is connected to Home Assistant right now.")
-            return {"handled": True, "action": "smarthome", "ok": False,
-                    "response": msg, "entities": []}
-
+    # ── "Turn everything on/off" ──
+    if want_all:
         ok_any = False
-        errors = []
-        for eid in entity_ids:
+        # HA devices
+        controllable = {"light", "switch", "fan", "climate", "cover", "input_boolean"}
+        for s in states:
+            eid = s.get("entity_id", "")
+            domain = eid.split(".")[0]
+            if domain in controllable:
+                ok, _ = ha_call(domain, service, eid)
+                ok_any = ok_any or ok
+        # Generic devices
+        if gdm:
+            for gd in gen_devs:
+                try:
+                    if gd.get("device_type") == "multi_channel":
+                        for i in range(1, len(gd.get("channels", [])) + 1):
+                            ok, _ = gdm.set_device_state(gd["id"], gen_action, channel=i) \
+                                if gen_action in ("on", "off") else gdm.toggle_device(gd["id"], channel=i)
+                            ok_any = ok_any or ok
+                    else:
+                        ok, _ = gdm.set_device_state(gd["id"], gen_action) \
+                            if gen_action in ("on", "off") else gdm.toggle_device(gd["id"])
+                        ok_any = ok_any or ok
+                except Exception:
+                    pass
+        label = _ar_label("all devices") if ar else "all devices"
+        if ok_any:
+            msg = verb + " " + label + " ✅"
+            return {"handled": True, "action": "smarthome", "ok": True,
+                    "response": msg, "service": service, "entities": ["all"]}
+        msg = ("ماكو أجهزة متصلة حالياً." if ar else "No devices are connected right now.")
+        return {"handled": True, "action": "smarthome", "ok": False,
+                "response": msg, "entities": []}
+
+    # ── Extract device name hint ──
+    hint = _extract_device_hint(tn)
+    print(f"[SmartHome] action={service}, hint={hint!r}")
+
+    # ── Search all devices by name ──
+    matches = _search_all_devices(hint, states, gen_devs)
+
+    if matches:
+        match = matches[0]
+        label = match["label"]
+
+        if match["source"] == "ha":
+            # Control via Home Assistant
+            eid = match["device"].get("entity_id", "")
             domain = eid.split(".")[0]
             ok, err = ha_call(domain, service, eid)
-            ok_any = ok_any or ok
-            if not ok:
-                errors.append(err)
-
-        if ok_any:
-            verb = _ar_action(service, ar)
-            if ar:
-                msg = verb + " " + _ar_label(label) + (" ✅")
+            if ok:
+                msg = verb + " " + label + " ✅" if ar else verb.capitalize() + " " + label + "."
+                print(f"[SmartHome] ✅ {service}({eid})")
+                return {"handled": True, "action": "smarthome", "ok": True,
+                        "response": msg, "service": service, "entities": [eid]}
             else:
-                msg = verb.capitalize() + " " + str(label) + "."
-            return {"handled": True, "action": "smarthome", "ok": True,
-                    "response": msg, "service": service, "entities": entity_ids}
+                msg = ("ما كدرت أنفّذ الأمر: " + err if ar
+                       else "Couldn't execute: " + err)
+                return {"handled": True, "action": "smarthome", "ok": False,
+                        "response": msg, "entities": [eid], "error": err}
 
-        # HA call failed — try generic devices as fallback
-        generic_result = _try_generic_devices(tn, text)
-        if generic_result:
-            return generic_result
+        elif match["source"] == "generic" and gdm:
+            # Control generic / virtual device
+            gd = match["device"]
+            ch = match["channel"]
+            if gen_action in ("on", "off"):
+                ok, result = gdm.set_device_state(gd["id"], gen_action, channel=ch)
+            else:
+                ok, result = gdm.toggle_device(gd["id"], channel=ch)
+            if ok:
+                msg = verb + " " + label + " ✅" if ar else verb.capitalize() + " " + label + "."
+                print(f"[SmartHome] ✅ {service}({gd['id']}, ch={ch})")
+                return {"handled": True, "action": "smarthome", "ok": True,
+                        "response": msg, "service": service, "entities": [gd["id"]]}
+            else:
+                msg = ("ما كدرت أنفّذ الأمر: " + str(result) if ar
+                       else "Couldn't execute: " + str(result))
+                return {"handled": True, "action": "smarthome", "ok": False,
+                        "response": msg, "entities": [gd["id"]], "error": str(result)}
 
-        msg = ("حاولت أنفّذ الأمر بس ماكدر أوصل للبيت الذكي (Home Assistant). تأكد إنه شغّال."
-               if ar else "I tried but couldn't reach Home Assistant. Is it running?")
+    # ── Domain alias fallback (e.g. "شغل الضوء" without specific name) ──
+    for domain, aliases in DOMAIN_ALIASES:
+        if _has(tn, aliases):
+            # Try HA devices in this domain
+            controllable = {"light", "switch", "fan", "climate", "cover", "input_boolean"}
+            domain_ents = [s for s in states
+                           if s.get("entity_id", "").split(".")[0] == domain
+                           and s.get("entity_id", "").split(".")[0] in controllable]
+            if domain_ents:
+                ok_any = False
+                for s in domain_ents:
+                    eid = s.get("entity_id", "")
+                    ok, _ = ha_call(eid.split(".")[0], service, eid)
+                    ok_any = ok_any or ok
+                if ok_any:
+                    label = _ar_label(domain) if ar else domain
+                    msg = verb + " " + label + " ✅" if ar else verb.capitalize() + " " + label + "."
+                    return {"handled": True, "action": "smarthome", "ok": True,
+                            "response": msg, "service": service,
+                            "entities": [s["entity_id"] for s in domain_ents]}
+
+            # Try generic devices matching domain
+            if gdm and gen_devs:
+                matching = []
+                for gd in gen_devs:
+                    gname = _norm(gd.get("name", ""))
+                    if any(a in gname for a in aliases):
+                        matching.append(gd)
+                if not matching and domain in ("light", "switch"):
+                    matching = [d for d in gen_devs
+                                if d.get("device_type", "switch") in ("switch", "multi_channel")]
+                if matching:
+                    ok_any = False
+                    for gd in matching:
+                        try:
+                            if gen_action in ("on", "off"):
+                                ok, _ = gdm.set_device_state(gd["id"], gen_action)
+                            else:
+                                ok, _ = gdm.toggle_device(gd["id"])
+                            ok_any = ok_any or ok
+                        except Exception:
+                            pass
+                    if ok_any:
+                        label = _ar_label(domain) if ar else domain
+                        msg = verb + " " + label + " ✅" if ar else verb.capitalize() + " " + label + "."
+                        return {"handled": True, "action": "smarthome", "ok": True,
+                                "response": msg, "service": service,
+                                "entities": [d["id"] for d in matching]}
+
+    # ── Nothing found ──
+    if hint:
+        msg = ("ماكو جهاز باسم \"" + hint + "\" — تأكد من الاسم أو أضف الجهاز من صفحة IoT."
+               if ar else 'No device named "' + hint + '" found — check the name or add it from the IoT page.')
         return {"handled": True, "action": "smarthome", "ok": False,
-                "response": msg, "service": service, "entities": entity_ids,
-                "error": "; ".join(errors)[:200]}
-
-    # No HA match — try generic devices
-    generic_result = _try_generic_devices(tn, text)
-    if generic_result:
-        return generic_result
+                "response": msg, "entities": []}
 
     return None
 
 
 def _try_generic_devices(text_norm, original_text):
-    """Try to match and control a generic (Tasmota/ESP) device from the utterance."""
-    service = _service_for(text_norm)
-    if not service:
-        return None
-    gdm = _get_generic_mgr()
-    if not gdm:
-        return None
-    try:
-        devs = gdm.list_devices()
-    except Exception:
-        return None
-    if not devs:
-        return None
-
-    ar = _is_arabic(original_text)
-    want_all = _has(text_norm, ALL_WORDS)
-
-    # Map service to generic action
-    gen_action = "on" if service == "turn_on" else ("off" if service == "turn_off" else "toggle")
-
-    # 1) Match by device name or channel name
-    if not want_all:
-        for d in devs:
-            dname = _norm(d.get("name", ""))
-            if dname and len(dname) >= 2 and dname in text_norm:
-                ok, result = (gdm.set_device_state(d["id"], gen_action)
-                              if gen_action in ("on", "off")
-                              else gdm.toggle_device(d["id"]))
-                verb = _ar_action(service, ar)
-                label = d.get("name", d["id"])
-                if ok:
-                    msg = verb + " " + label + " ✅" if ar else verb.capitalize() + " " + label + "."
-                    print(f"[Assist-Generic] ✅ {service} → {d['id']}")
-                    return {"handled": True, "action": "smarthome", "ok": True,
-                            "response": msg, "service": service, "entities": [d["id"]]}
-                else:
-                    print(f"[Assist-Generic] ❌ {service} → {d['id']}: {result}")
-
-            # Check multi-channel names
-            if d.get("device_type") == "multi_channel":
-                for i, ch_name in enumerate(d.get("channels", []), 1):
-                    cn = _norm(ch_name)
-                    if cn and len(cn) >= 2 and cn in text_norm:
-                        ok, result = (gdm.set_device_state(d["id"], gen_action, channel=i)
-                                      if gen_action in ("on", "off")
-                                      else gdm.toggle_device(d["id"], channel=i))
-                        verb = _ar_action(service, ar)
-                        if ok:
-                            msg = verb + " " + ch_name + " ✅" if ar else verb.capitalize() + " " + ch_name + "."
-                            print(f"[Assist-Generic] ✅ {service} → {d['id']}|ch{i}")
-                            return {"handled": True, "action": "smarthome", "ok": True,
-                                    "response": msg, "service": service,
-                                    "entities": [d["id"] + "|" + str(i)]}
-
-    # 2) Match by domain alias (e.g. "الضوء" → find any generic device that
-    #    looks like a light by its name or type)
-    for domain, aliases in DOMAIN_ALIASES:
-        if _has(text_norm, aliases):
-            # Find generic devices whose name/type hints at this domain
-            matching = []
-            for d in devs:
-                dname = _norm(d.get("name", ""))
-                dtype = d.get("device_type", "")
-                # Check if device name contains domain hints
-                if any(a in dname for a in aliases) or dtype == domain:
-                    matching.append(d)
-            if not matching and domain in ("light", "switch"):
-                # Any switch-type generic device counts
-                matching = [d for d in devs if d.get("device_type", "switch") in ("switch", "multi_channel")]
-            if matching:
-                ok_any = False
-                for d in matching:
-                    try:
-                        if d.get("device_type") == "multi_channel" and want_all:
-                            for i in range(1, len(d.get("channels", [])) + 1):
-                                ok, _ = (gdm.set_device_state(d["id"], gen_action, channel=i)
-                                         if gen_action in ("on", "off")
-                                         else gdm.toggle_device(d["id"], channel=i))
-                                ok_any = ok_any or ok
-                        else:
-                            ok, _ = (gdm.set_device_state(d["id"], gen_action)
-                                     if gen_action in ("on", "off")
-                                     else gdm.toggle_device(d["id"]))
-                            ok_any = ok_any or ok
-                    except Exception as exc:
-                        print(f"[Assist-Generic] Error controlling {d['id']}: {exc}")
-                if ok_any:
-                    verb = _ar_action(service, ar)
-                    label = _ar_label(domain) if ar else domain
-                    msg = verb + " " + label + " ✅" if ar else verb.capitalize() + " " + label + "."
-                    print(f"[Assist-Generic] ✅ {service} → {domain} ({len(matching)} device(s))")
-                    return {"handled": True, "action": "smarthome", "ok": True,
-                            "response": msg, "service": service,
-                            "entities": [d["id"] for d in matching]}
-
+    """Legacy fallback — delegates to try_smart_home logic above."""
     return None
 
 
@@ -415,20 +519,30 @@ _ANY_TAG = re.compile(r"\[(?:IOT|GENERIC):[^\]]*\]")
 
 
 def _get_generic_mgr():
-    """Try to get the GenericDeviceManager from the running server module."""
+    """Return the ONE shared GenericDeviceManager.
+
+    Prefer the long-lived instance created by the running server so the chatbot
+    brain and the dashboard share the exact same manager. If that is missing,
+    fall back to a manager bound to the SAME canonical JSON store the rest of
+    the app uses (config.NEXUS_GENERIC_DEVICES_PATH) — never a stale, separate
+    file. (Previously this pointed at backend/generic_devices.json, which does
+    not exist, so the brain always saw zero devices and could control nothing.)
+    """
     try:
         import server
-        return getattr(server, "generic_device_mgr", None)
+        mgr = getattr(server, "generic_device_mgr", None)
+        if mgr is not None:
+            return mgr
     except Exception:
         pass
-    # Fallback: instantiate our own from the project-level JSON
+    # Fallback: instantiate our own from the SAME canonical store.
     try:
         from iot_controller import GenericDeviceManager
-        _backend = os.path.dirname(os.path.abspath(__file__))
-        _path = os.path.join(_backend, "generic_devices.json")
-        if not os.path.exists(_path):
-            _project = os.path.dirname(_backend)
-            _path = os.path.join(_project, "generic_devices.json")
+        try:
+            from config import NEXUS_GENERIC_DEVICES_PATH as _path
+        except Exception:
+            _backend = os.path.dirname(os.path.abspath(__file__))
+            _path = os.path.join(_backend, "data", "nexus_generic_devices.json")
         return GenericDeviceManager(_path)
     except Exception:
         return None
@@ -866,6 +980,9 @@ def llm_chat(message, history):
                     dtype = gd.get('device_type', 'switch')
                     room = gd.get('room', '')
                     prefix = (room + ": ") if room else ""
+                    # Use the device ID directly — _find() now supports
+                    # name-based fallback lookup for virtual UUIDs.
+                    dev_target = gd['id']
                     if dtype == 'multi_channel':
                         channels = gd.get('channels', [])
                         ch_states = gd.get('state', {})
@@ -874,12 +991,16 @@ def llm_chat(message, history):
                                      if isinstance(ch_states, dict) else 'unknown')
                             gen_lines.append(
                                 "  - " + prefix + ch_name + " (ch" + str(i)
-                                + ") = " + ch_st + " [Target: " + gd['id'] + "|" + str(i) + "]")
+                                + ") = " + ch_st + " [Target: " + dev_target + "|" + str(i) + "]")
                     else:
+                        state_str = str(gd.get('state', 'unknown'))
+                        # Normalize boolean state for clarity
+                        if state_str.lower() in ('true', 'false'):
+                            state_str = 'on' if state_str.lower() == 'true' else 'off'
                         gen_lines.append(
                             "  - " + prefix + gd['name'] + " = "
-                            + str(gd.get('state', 'unknown'))
-                            + " [Target: " + gd['id'] + "]")
+                            + state_str
+                            + " [Target: " + dev_target + "]")
                 if gen_lines:
                     sys_prompt = (sys_prompt
                         + "\n\n--- Generic IP Devices (use [GENERIC:action|target] tags) ---\n"
@@ -897,6 +1018,9 @@ def llm_chat(message, history):
             _body.update(_S.get_llm_params())
         except Exception:
             _body["temperature"] = 0.6
+        # Ensure enough output budget for a sentence + IoT tags
+        if not _body.get("max_tokens") or _body["max_tokens"] < 256:
+            _body["max_tokens"] = 256
         r = requests.post(_llm_url() + "/v1/chat/completions",
                           json=_body,
                           timeout=120)
@@ -926,10 +1050,13 @@ def handle_command(message, history=None):
         return {"response": "", "action": "none", "handled": False,
                 "context_used": 0, "context_max": 4096}
 
+    print(f"[Assist] handle_command: {message[:80]!r}")
+
     # 1) Personal memory (cheap, deterministic, no network).
     try:
         r = try_memory(message)
         if r:
+            print(f"[Assist] → memory path")
             r.setdefault("context_used", 0)
             r.setdefault("context_max", 4096)
             return r
@@ -940,6 +1067,7 @@ def handle_command(message, history=None):
     try:
         r = try_routine(message)
         if r:
+            print(f"[Assist] → routine path")
             r.setdefault("context_used", 0)
             r.setdefault("context_max", 4096)
             return r
@@ -950,6 +1078,7 @@ def handle_command(message, history=None):
     try:
         r = try_smart_home(message)
         if r:
+            print(f"[Assist] → smart-home path: ok={r.get('ok')}, entities={r.get('entities')}")
             r.setdefault("context_used", 0)
             r.setdefault("context_max", 4096)
             return r
@@ -957,6 +1086,7 @@ def handle_command(message, history=None):
         pass
 
     # 4) Fallback to the LLM (with memory) + execute any [IOT:] tags.
+    print(f"[Assist] → LLM fallback path")
     reply, used, cmax = llm_chat(message, history)
     executed = []
     try:

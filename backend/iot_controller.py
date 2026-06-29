@@ -597,11 +597,35 @@ class GenericDeviceManager:
         self._timeout = http_timeout
         self._lock = threading.Lock()
         self._devices: list[dict] = []
+        self._mtime = 0.0
         self._load()
 
     # ── Persistence ───────────────────────────────────────────
+    def _file_mtime(self) -> float:
+        """Last-modified time of the store, or 0.0 if it does not exist yet."""
+        try:
+            return os.path.getmtime(self._path)
+        except OSError:
+            return 0.0
+
+    def _maybe_reload(self) -> None:
+        """Re-read the store if it changed on disk since we last loaded it.
+
+        The dashboard routes, the assistant brain and this manager all target
+        the SAME canonical file (config.NEXUS_GENERIC_DEVICES_PATH). Any of
+        them may write it, so we refresh on access whenever the mtime moves to
+        avoid serving a stale in-memory device list.
+        """
+        try:
+            mtime = self._file_mtime()
+            if mtime and mtime != self._mtime:
+                self._load()
+        except Exception:
+            pass
+
     def _load(self) -> None:
         """Load devices from the JSON file."""
+        self._mtime = self._file_mtime()
         try:
             if os.path.isfile(self._path):
                 with open(self._path, "r", encoding="utf-8") as f:
@@ -626,6 +650,7 @@ class GenericDeviceManager:
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(self._devices, f, indent=2)
             os.replace(tmp, self._path)
+            self._mtime = self._file_mtime()
         except Exception as exc:
             print(f"[GenDev] Error saving {self._path}: {exc}")
             try:
@@ -637,6 +662,7 @@ class GenericDeviceManager:
     def list_devices(self) -> list[dict]:
         """Return a copy of all generic devices."""
         with self._lock:
+            self._maybe_reload()
             return [dict(d) for d in self._devices]
 
     def add_device(self, name: str, ip: str, room: str = "",
@@ -724,6 +750,54 @@ class GenericDeviceManager:
 
     # ── Device Control (Tasmota HTTP API) ─────────────────────
 
+    # ── Virtual device helper ─────────────────────────────────
+    @staticmethod
+    def _is_virtual(dev: dict) -> bool:
+        """Return True if the device is a locally-simulated virtual device."""
+        return bool(dev.get("virtual"))
+
+    def _toggle_virtual(self, dev: dict,
+                        channel: int | None = None) -> tuple[bool, str]:
+        """Flip the in-memory state of a virtual device (no HTTP)."""
+        with self._lock:
+            dtype = dev.get("device_type", "switch")
+            if dtype == "multi_channel" and channel is not None:
+                if not isinstance(dev.get("state"), dict):
+                    dev["state"] = {}
+                cur = dev["state"].get(str(channel), "off")
+                new = "off" if str(cur).lower() in ("on", "true") else "on"
+                dev["state"][str(channel)] = new
+            else:
+                cur = dev.get("state", False)
+                if isinstance(cur, bool):
+                    new = "on" if not cur else "off"
+                    dev["state"] = not cur
+                else:
+                    new = "off" if str(cur).lower() in ("on", "true") else "on"
+                    dev["state"] = (new == "on")
+            self._save()
+        ch_label = f" ch{channel}" if channel else ""
+        print(f"[GenDev] ✅ Toggled virtual {dev['name']}{ch_label} → {new}")
+        return True, new
+
+    def _set_virtual_state(self, dev: dict, desired: str,
+                           channel: int | None = None) -> tuple[bool, str]:
+        """Set the in-memory state of a virtual device (no HTTP)."""
+        is_on = desired.strip().upper() == "ON"
+        new = "on" if is_on else "off"
+        with self._lock:
+            dtype = dev.get("device_type", "switch")
+            if dtype == "multi_channel" and channel is not None:
+                if not isinstance(dev.get("state"), dict):
+                    dev["state"] = {}
+                dev["state"][str(channel)] = new
+            else:
+                dev["state"] = is_on
+            self._save()
+        ch_label = f" ch{channel}" if channel else ""
+        print(f"[GenDev] ✅ Set virtual {dev['name']}{ch_label} → {new}")
+        return True, new
+
     def toggle_device(self, dev_id: str,
                       channel: int | None = None) -> tuple[bool, str]:
         """Toggle a Tasmota device.
@@ -731,12 +805,17 @@ class GenericDeviceManager:
         For ``switch`` type:         ``Power Toggle``
         For ``multi_channel`` type:  ``Power<channel> Toggle``
         For ``dimmer``/``fan``:      ``Power Toggle`` (on/off)
+        Virtual devices are toggled in-memory (no HTTP call).
 
         Returns ``(True, new_state)`` or ``(False, error)``.
         """
         dev = self._find(dev_id)
         if not dev:
             return False, f"Device {dev_id} not found"
+
+        # ── Virtual: flip state in memory, no HTTP ──
+        if self._is_virtual(dev):
+            return self._toggle_virtual(dev, channel)
 
         dtype = dev.get("device_type", "switch")
 
@@ -786,6 +865,7 @@ class GenericDeviceManager:
 
         Unlike ``toggle_device`` which flips the current state, this
         sends ``Power ON`` or ``Power OFF`` to guarantee the outcome.
+        Virtual devices are updated in-memory (no HTTP call).
 
         Parameters
         ----------
@@ -801,6 +881,10 @@ class GenericDeviceManager:
         desired = desired_state.strip().upper()
         if desired not in ("ON", "OFF"):
             return False, f"Invalid state: {desired_state} (must be on/off)"
+
+        # ── Virtual: set state in memory, no HTTP ──
+        if self._is_virtual(dev):
+            return self._set_virtual_state(dev, desired, channel)
 
         dtype = dev.get("device_type", "switch")
 
@@ -914,8 +998,18 @@ class GenericDeviceManager:
             return False, "unreachable"
 
     def _find(self, dev_id: str) -> dict | None:
-        """Find a device by ID (returns reference — caller may mutate)."""
+        """Find a device by ID or by name (returns reference — caller may
+        mutate).  Name-based lookup is tried as a fallback when the exact
+        ID is not found, since virtual devices use opaque UUIDs that the
+        LLM cannot predict."""
+        self._maybe_reload()
+        # 1) Exact ID match
         for d in self._devices:
             if d["id"] == dev_id:
+                return d
+        # 2) Fallback: case-insensitive name match
+        dev_id_lower = dev_id.lower().replace("generic.", "").replace("_", " ")
+        for d in self._devices:
+            if d.get("name", "").lower() == dev_id_lower:
                 return d
         return None

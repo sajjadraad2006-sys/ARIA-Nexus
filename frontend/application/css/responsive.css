@@ -1,0 +1,290 @@
+/* =====================================================================
+   ARIA NEXUS — responsive.css
+   Mobile + tablet (iPhone / iPad) adaptation layer.
+   Loaded LAST so it overrides the desktop design system.
+   Handles: dynamic viewport height, safe-area (notch) insets,
+   collapsing the side rail into a bottom nav on phones, fluid
+   chat bar, fullscreen overlays, and iOS input-zoom prevention.
+   ===================================================================== */
+
+:root {
+  /* height of the phone bottom navigation bar */
+  --nexus-bottomnav-h: 60px;
+}
+
+/* ---------------------------------------------------------------------
+   1. DYNAMIC VIEWPORT HEIGHT
+   100vh is wrong on mobile (it sits behind the URL bar). Use the
+   dynamic viewport unit when supported, with a 100vh fallback.
+--------------------------------------------------------------------- */
+html, body { height: 100%; }
+
+#dashboard {
+  height: 100vh;          /* fallback */
+  height: 100dvh;
+  width: 100vw;
+  width: 100dvw;
+}
+
+/* On mobile: make the header visually distinct from the browser chrome.
+   Both share a dark background; a brighter bottom border + slightly
+   lighter surface ensures the user can see where the browser ends. */
+@media (max-width: 1024px) {
+  .nexus-header {
+    background: hsla(222, 42%, 11%, 0.96) !important;
+    border-bottom: 1px solid hsla(195, 100%, 55%, 0.35) !important;
+    box-shadow: 0 1px 12px hsla(0, 0%, 0%, 0.5);
+  }
+}
+
+#splash-screen { min-height: 100vh; min-height: 100dvh; }
+
+/* ---------------------------------------------------------------------
+   2. SAFE-AREA (notch / rounded corners / home indicator)
+   Works together with <meta viewport-fit=cover>.
+--------------------------------------------------------------------- */
+.nexus-header {
+  padding-top: env(safe-area-inset-top);
+  height: calc(var(--nexus-header-h) + env(safe-area-inset-top));
+  padding-left: max(18px, env(safe-area-inset-left));
+  padding-right: max(18px, env(safe-area-inset-right));
+}
+.nexus-sidebar { top: calc(var(--nexus-header-h) + env(safe-area-inset-top)); }
+.nexus-main    { top: calc(var(--nexus-header-h) + env(safe-area-inset-top)); }
+
+/* =====================================================================
+   3. TABLET / iPad  (max-width: 1024px)
+   Keep the side rail but make it a touch more compact, relax the grids,
+   and enlarge touch targets.
+   ===================================================================== */
+@media (max-width: 1024px) {
+  :root { --nexus-sidebar-w: 100px; }
+
+  .nexus-page { padding: 22px 24px; }
+  .page-header h1 { font-size: 23px; }
+
+  .modules-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+
+  /* comfortable tap targets on touch screens */
+  .btn-icon { width: 42px; height: 42px; }
+  .nav-item { padding: 14px 4px; }
+}
+
+/* =====================================================================
+   4. PHONE  (max-width: 640px)
+   Convert the fixed left rail into a bottom navigation bar and let the
+   main content use the full width.
+   ===================================================================== */
+@media (max-width: 640px) {
+  :root { --nexus-header-h: 52px; }
+
+  /* ---- side rail -> bottom nav ---- */
+  .nexus-sidebar {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: calc(var(--nexus-bottomnav-h) + env(safe-area-inset-bottom));
+    flex-direction: row;
+    align-items: stretch;
+    gap: 2px;
+    padding: 6px 8px;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom));
+    border-right: none;
+    border-top: 1px solid var(--nexus-border);
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .nexus-sidebar::-webkit-scrollbar { display: none; }
+
+  .nav-item {
+    flex: 0 0 auto;
+    min-width: 60px;
+    padding: 6px 10px;
+    gap: 3px;
+    font-size: 10px;
+  }
+  .nav-item .nav-icon { font-size: 19px; }
+  .nav-label { display: block; }   /* show short labels under icons */
+
+  /* ---- main content fills width, sits above the bottom nav ---- */
+  .nexus-main {
+    left: 0;
+    right: 0;  /* explicit: needed since #dashboard is now position:relative */
+    top: calc(var(--nexus-header-h) + env(safe-area-inset-top));
+    bottom: calc(var(--nexus-bottomnav-h) + env(safe-area-inset-bottom));
+  }
+  .nexus-page {
+    padding: 16px 14px;
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+    gap: 14px;
+  }
+
+  /* ---- header trims ---- */
+  .nexus-header { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+  .header-version { display: none; }
+  .header-center #header-clock { font-size: 15px; letter-spacing: 1px; }
+  .header-left, .header-right { gap: 8px; }
+
+  .page-header { gap: 8px; }
+  .page-header h1 { font-size: 20px; }
+  .page-subtitle { font-size: 13px; }
+
+  /* ---- launcher grid: single / fluid columns ---- */
+  .modules-grid { grid-template-columns: 1fr; gap: 12px; }
+  .ov-stats { grid-template-columns: repeat(2, 1fr); }
+  .ov-grid  { grid-template-columns: 1fr; }
+
+  /* ---- chat bar wraps: textarea on its own row, buttons below ---- */
+  .chat-input-bar {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 2px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+  .chat-textarea { flex: 1 1 100%; order: -1; }
+  .ctx-counter   { order: 9; margin-inline-start: auto; }
+  .chat-bubble   { max-width: 92%; }
+
+  /* ---- RTL (Arabic): bottom nav + full-width main must override the
+         right-rail anchors from rtl.css ---- */
+  [dir="rtl"] .nexus-sidebar { right: 0; left: 0; border-left: none; }
+  [dir="rtl"] .nexus-main {
+    right: 0;
+    left: 0;
+    top: calc(var(--nexus-header-h) + env(safe-area-inset-top));
+    bottom: calc(var(--nexus-bottomnav-h) + env(safe-area-inset-bottom));
+  }
+  [dir="rtl"] .settings-drawer { transform: translateX(-104%); }
+  [dir="rtl"] .settings-drawer.open { transform: translateX(0); }
+
+  /* ---- settings drawer becomes a full-width sheet ---- */
+  .settings-drawer { width: 100%; max-width: 100%; }
+
+  /* ---- assistant call overlay fits the screen ---- */
+  .acall-inner { width: 94vw; padding: 28px 18px; gap: 18px; }
+  .acall-viz   { height: 150px; gap: 10px; }
+  .acall-bar   { width: 22px; height: 140px; }
+
+  /* ---- toast: lift above the bottom nav ---- */
+  #toast-container {
+    bottom: calc(var(--nexus-bottomnav-h) + env(safe-area-inset-bottom) + 12px);
+    right: 12px;
+    left: 12px;
+    align-items: center;
+  }
+  .nexus-toast { min-width: unset; max-width: calc(100vw - 24px); width: 100%; }
+}
+
+/* very small phones (<=380px): tighten nav further */
+@media (max-width: 380px) {
+  .nav-item { min-width: 54px; padding: 6px 7px; }
+  .nav-label { font-size: 9px; }
+  .header-logo-text { font-size: 16px; }
+}
+
+/* =====================================================================
+   5. iOS INPUT ZOOM PREVENTION
+   Mobile Safari auto-zooms when a focused input has font-size < 16px.
+   ===================================================================== */
+@media (max-width: 1024px) {
+  .nexus-input,
+  .nexus-select,
+  .nexus-textarea,
+  .chat-textarea,
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* =====================================================================
+   6. LANDSCAPE PHONES
+   In short landscape viewports, shrink vertical chrome so content fits.
+   ===================================================================== */
+@media (max-width: 920px) and (max-height: 480px) and (orientation: landscape) {
+  .nexus-sidebar { --nexus-bottomnav-h: 48px; }
+  .nav-item { min-width: 52px; padding: 4px 8px; }
+  .nav-label { display: none; }            /* icon-only to save height */
+  .acall-viz { height: 110px; }
+  .acall-bar { height: 100px; }
+}
+
+/* =====================================================================
+   7. HOVER-CAPABILITY GUARD
+   Disable lift/translate hover effects on touch devices so taps don't
+   leave elements stuck in a hovered state.
+   ===================================================================== */
+@media (hover: none) {
+  .module-card:hover,
+  .btn-primary:hover,
+  .btn-icon:hover,
+  .nav-item:hover { transform: none; }
+}
+
+/* =====================================================================
+   8. FULLSCREEN MODE
+   :fullscreen / :-webkit-full-screen ensure the shell fills the screen
+   correctly when the Fullscreen API is active (Android Chrome, iPad,
+   desktop). iOS Safari does NOT support requestFullscreen so these
+   rules are irrelevant there (the button is hidden on iPhone anyway).
+   ===================================================================== */
+:fullscreen,
+:-webkit-full-screen,
+:-moz-full-screen {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+:fullscreen #dashboard,
+:-webkit-full-screen #dashboard,
+:-moz-full-screen #dashboard {
+  height: 100%;
+  width: 100%;
+}
+
+/* Phone in fullscreen — re-anchor bottom nav so it hugs the real bottom
+   (safe-area-inset-bottom may be 0 in fullscreen on some devices). */
+@media (max-width: 640px) {
+  :fullscreen .nexus-sidebar,
+  :-webkit-full-screen .nexus-sidebar,
+  :-moz-full-screen .nexus-sidebar {
+    position: fixed;
+    bottom: env(safe-area-inset-bottom, 0px);
+    height: calc(var(--nexus-bottomnav-h) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+  }
+
+  :fullscreen .nexus-main,
+  :-webkit-full-screen .nexus-main,
+  :-moz-full-screen .nexus-main {
+    top: calc(var(--nexus-header-h) + env(safe-area-inset-top, 0px));
+    bottom: calc(var(--nexus-bottomnav-h) + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Lift toasts above the bottom nav in fullscreen */
+  :fullscreen #toast-container,
+  :-webkit-full-screen #toast-container,
+  :-moz-full-screen #toast-container {
+    bottom: calc(var(--nexus-bottomnav-h) + env(safe-area-inset-bottom, 0px) + 12px);
+  }
+}
+
+/* Tablet in fullscreen — side rail stays, safe-areas reset safely */
+@media (min-width: 641px) and (max-width: 1024px) {
+  :fullscreen .nexus-sidebar,
+  :-webkit-full-screen .nexus-sidebar {
+    top: calc(var(--nexus-header-h) + env(safe-area-inset-top, 0px));
+  }
+
+  :fullscreen .nexus-main,
+  :-webkit-full-screen .nexus-main {
+    top: calc(var(--nexus-header-h) + env(safe-area-inset-top, 0px));
+  }
+}

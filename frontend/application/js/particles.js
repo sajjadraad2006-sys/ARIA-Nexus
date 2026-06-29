@@ -15,9 +15,17 @@
     canvas.style.inset = '0';
     canvas.style.willChange = 'transform';
 
+    /* Lite/Jetson mode: far fewer particles and no O(n^2) link drawing.
+       Detected from the body class (set by settings.js) or a coarse
+       hardware heuristic, so it works even before settings apply. */
+    var liteMode = (document.body && document.body.classList.contains('nx-lite')) ||
+      ((navigator.hardwareConcurrency || 8) <= 6) ||
+      /[?&]lite(=1)?(&|$)/.test((location.search || '').toLowerCase());
+
     var w = 0, h = 0;
-    var COUNT = 80;
+    var COUNT = liteMode ? 26 : 80;
     var LINK_DIST = 120;
+    var DRAW_LINKS = !liteMode;
     var COLORS = [
       'hsl(195,100%,55%)',     // cyan accent-1
       'hsl(265,80%,65%)',      // purple accent-2
@@ -67,6 +75,7 @@
       }
       ctx.globalAlpha = 1;
 
+      if (DRAW_LINKS)
       for (var a = 0; a < particles.length; a++) {
         for (var b = a + 1; b < particles.length; b++) {
           var dx = particles[a].x - particles[b].x;

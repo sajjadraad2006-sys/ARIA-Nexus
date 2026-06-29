@@ -1,0 +1,131 @@
+Everyday Life & Practical Knowledge
+=====================================
+
+TIME & CALENDARS
+-----------------
+The world uses the Gregorian calendar (365 days/year, 366 in leap years).
+A leap year occurs every 4 years (divisible by 4), except centuries not divisible by 400.
+Example: 2000 was a leap year; 1900 was not.
+
+Time zones:
+  UTC (Coordinated Universal Time): The world's time standard
+  UTC+3: Iraq, Saudi Arabia, Kuwait (Arabia Standard Time)
+  UTC+0: UK (winter), Ghana, Iceland
+  UTC-5: Eastern USA (winter)
+  UTC+8: China, Singapore
+  UTC+9: Japan, South Korea
+
+Days of the week: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday
+Months: January(31), February(28/29), March(31), April(30), May(31), June(30),
+         July(31), August(31), September(30), October(31), November(30), December(31)
+
+MEASUREMENTS & UNITS
+---------------------
+Length:
+  1 meter = 100 centimeters = 1000 millimeters
+  1 kilometer = 1000 meters
+  1 foot = 30.48 cm; 1 inch = 2.54 cm; 1 mile = 1.609 km
+
+Weight/Mass:
+  1 kilogram = 1000 grams
+  1 pound = 0.453 kg; 1 ounce = 28.35 grams
+  1 ton (metric) = 1000 kg
+
+Temperature conversions:
+  °F to °C: (°F - 32) × 5/9
+  °C to °F: (°C × 9/5) + 32
+  Common values: 0°C = 32°F (freezing), 100°C = 212°F (boiling), 37°C = 98.6°F (body)
+
+Volume:
+  1 liter = 1000 milliliters
+  1 US gallon = 3.785 liters; 1 US cup = 237 ml
+
+COOKING & KITCHEN
+------------------
+Common cooking methods:
+  Boiling: Cooking in water at 100°C
+  Baking/Roasting: Dry heat in an oven (150-250°C)
+  Frying: Cooking in hot oil (175-190°C)
+  Steaming: Using steam from boiling water (healthy, preserves nutrients)
+  Grilling: Direct heat from below or above
+
+Common kitchen temperatures:
+  Refrigerator: 2-4°C
+  Freezer: -18°C
+  Boiling water: 100°C
+  Bread baking: 180-200°C
+  Steak well-done: internal 70°C
+
+Food safety:
+  Danger zone: 4°C to 60°C (bacteria multiply rapidly)
+  Always thaw food in the refrigerator, not at room temperature
+  Wash hands before and after handling raw meat
+  Cook chicken to internal temperature of at least 74°C
+
+MONEY & ECONOMICS
+------------------
+Common world currencies:
+  USD ($): US Dollar — world's primary reserve currency
+  EUR (€): Euro — used by 20 EU countries
+  GBP (£): British Pound Sterling
+  JPY (¥): Japanese Yen
+  IQD: Iraqi Dinar
+  SAR: Saudi Riyal
+  AED: UAE Dirham
+
+Basic economic concepts:
+  Inflation: Rise in prices over time; reduces purchasing power
+  GDP: Gross Domestic Product — total value of goods/services produced in a country
+  Interest rate: Cost of borrowing money; set by central banks
+  Stock market: Where company shares are bought and sold
+
+TRANSPORTATION
+--------------
+Speed comparisons:
+  Walking: ~5 km/h
+  Cycling: ~15-25 km/h
+  Car (city): 30-60 km/h
+  Car (highway): 80-120 km/h
+  Train (fast): 200-350 km/h
+  Commercial aircraft: ~900 km/h
+  Sound: 343 m/s = 1235 km/h
+  Light: 299,792 km/s
+
+Fuel economy:
+  Liters per 100 km (L/100km) — lower is more efficient
+  Miles per gallon (MPG) — higher is more efficient
+  Conversion: 100 ÷ L/100km × 0.4251 = MPG
+
+WEATHER & CLIMATE
+-----------------
+Weather terms:
+  Temperature: How hot or cold the air is
+  Humidity: Amount of water vapor in the air (0-100%)
+  Precipitation: Water falling from clouds (rain, snow, sleet, hail)
+  Wind speed: Measured in km/h or m/s; Beaufort scale 0-12
+  Barometric pressure: Air pressure; falling = incoming bad weather
+
+Weather phenomena:
+  Thunderstorm: Heavy rain + lightning + thunder (caused by convection)
+  Hurricane/Typhoon/Cyclone: Same thing — large rotating storm over warm ocean
+  Tornado: Violent rotating column of air touching the ground
+  Fog: Low-lying cloud reducing visibility; forms when air cools to dew point
+
+SPACE & THE SOLAR SYSTEM
+--------------------------
+The Sun: A star about 1.4 million km in diameter; 150 million km from Earth
+Planets (in order from the Sun):
+  1. Mercury — closest to Sun; no atmosphere; extreme temperatures
+  2. Venus — hottest planet (462°C); covered in thick CO₂ clouds
+  3. Earth — only known planet with life; 71% water surface
+  4. Mars — called the Red Planet; has the largest volcano (Olympus Mons)
+  5. Jupiter — largest planet; Great Red Spot is a 400-year-old storm
+  6. Saturn — known for its stunning ring system; lower density than water
+  7. Uranus — rotates on its side; made of ice giants
+  8. Neptune — farthest planet; fastest winds in the solar system (2100 km/h)
+
+Moon: Earth's only natural satellite; 384,400 km from Earth
+A light-year: Distance light travels in one year ≈ 9.46 trillion km
+Nearest star to Earth: Proxima Centauri (4.24 light-years away)
+Milky Way galaxy: Contains 100-400 billion stars; our Sun is one of them
+Observable universe: Estimated to contain 2 trillion galaxies

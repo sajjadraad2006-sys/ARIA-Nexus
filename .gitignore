@@ -27,3 +27,6 @@ chroma_db/
 *.wav
 node_modules/
 .DS_Store
+wget-log*
+*.bak
+*.prev

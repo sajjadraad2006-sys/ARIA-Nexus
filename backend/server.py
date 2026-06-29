@@ -129,8 +129,11 @@ try:
         ha_token=HA_TOKEN,
         timeout=HA_TIMEOUT,
     )
-    # Generic device manager — JSON persistent storage in project root
-    _GENERIC_DEVICES_PATH = os.path.join(_BACKEND_DIR, "generic_devices.json")
+    # Generic device manager — ONE canonical JSON store shared by the dashboard
+    # routes (GENERIC_PATH) and the assistant brain (_get_generic_mgr). The path
+    # is absolute (see config.NEXUS_GENERIC_DEVICES_PATH) so every component
+    # reads/writes the exact same file regardless of the process CWD.
+    from config import NEXUS_GENERIC_DEVICES_PATH as _GENERIC_DEVICES_PATH
     generic_device_mgr = GenericDeviceManager(_GENERIC_DEVICES_PATH)
 
     if iot_controller.is_available():
@@ -294,22 +297,8 @@ VISION_SYSTEM_PROMPT = """You are ARIA, a friendly smart delivery robot with a l
 Describe what you see in the image concisely and helpfully.
 Keep responses under 3 sentences unless asked for detail."""
 
-# Receptionist persona — used by /chatbot page
-RECEPTIONIST_PROMPT = """You are ARIA, a smart AI receptionist. Be warm, professional, and concise.
-
-CRITICAL LANGUAGE RULE — YOU MUST FOLLOW THIS:
-- Your DEFAULT language is English. Always respond in English.
-- The ONLY exception: if the user's message contains Arabic script (عربي), respond in Arabic.
-- If the user writes in English, you MUST respond in English. NEVER switch to Arabic unprompted.
-- Never mix languages in a single response.
-- Never add Arabic translations or parenthetical Arabic text when responding in English.
-
-RESPONSE RULES:
-- Keep answers short: 1–2 sentences maximum.
-- Be helpful and friendly.
-- You can tell stories, answer questions, give information, and have conversations.
-- Never make up facts. If you don't know, say so briefly.
-- Do NOT use emojis in your responses."""
+# Receptionist persona — used by /chatbot page (full ARIA identity with IoT)
+RECEPTIONIST_PROMPT = ROBOT_SYSTEM_PROMPT
 
 # ==========================================
 # VISION GATEKEEPER — pre-compiled regex (single-pass match)
@@ -515,11 +504,19 @@ def _models_warmup():
     """Warm the heavy models SEQUENTIALLY (LLM then Whisper).
 
     RAM on the Jetson is tight, so we deliberately avoid running both cold
-    inferences at the same time \u2014 staggering them keeps the peak memory lower
+    inferences at the same time — staggering them keeps the peak memory lower
     while still getting both models hot before the user interacts.
     """
     _llm_warmup()
     _whisper_warmup()
+    # Tell the nexus routes that Whisper is already warm so any browser-triggered
+    # /api/stt/warmup call returns immediately (skipped=True) instead of sending
+    # a duplicate silent-WAV request that could collide with a real user recording.
+    try:
+        import nexus_routes_additions as _nra
+        _nra._stt_warmed = True
+    except Exception:
+        pass
 
 
 def generate_piper_audio(text: str) -> str | None:
@@ -815,6 +812,7 @@ def call_llm(user_content, system_prompt: str, vision_used: bool = False) -> str
                     dtype = gd.get('device_type', 'switch')
                     room = gd.get('room', '')
                     prefix = f"{room}: " if room else ""
+                    dev_target = gd['id']
 
                     if dtype == 'multi_channel':
                         channels = gd.get('channels', [])
@@ -823,19 +821,27 @@ def call_llm(user_content, system_prompt: str, vision_used: bool = False) -> str
                             ch_st = ch_states.get(str(i), 'unknown') \
                                 if isinstance(ch_states, dict) else 'unknown'
                             gen_lines.append(
-                                f"  - {prefix}{ch_name} (Channel {i}) = {ch_st} [Target: {gd['id']}|{i}]"
+                                f"  - {prefix}{ch_name} (Channel {i}) = {ch_st} [Target: {dev_target}|{i}]"
                             )
                     elif dtype == 'dimmer':
+                        state_str = str(gd['state'])
                         gen_lines.append(
-                            f"  - {prefix}{gd['name']} = {gd['state']}   [Target: {gd['id']} -> use for dimmer 0-100]"
+                            f"  - {prefix}{gd['name']} = {state_str}   [Target: {dev_target} -> use for dimmer 0-100]"
                         )
                     elif dtype == 'fan':
+                        state_str = str(gd['state'])
                         gen_lines.append(
-                            f"  - {prefix}{gd['name']} = {gd['state']}   [Target: {gd['id']} -> use for fan 1-3]"
+                            f"  - {prefix}{gd['name']} = {state_str}   [Target: {dev_target} -> use for fan 1-3]"
                         )
                     else:
+                        # Normalize boolean states for virtual devices
+                        state_raw = gd.get('state', 'unknown')
+                        if isinstance(state_raw, bool):
+                            state_str = 'on' if state_raw else 'off'
+                        else:
+                            state_str = str(state_raw)
                         gen_lines.append(
-                            f"  - {prefix}{gd['name']} = {gd['state']}   [Target: {gd['id']}]"
+                            f"  - {prefix}{gd['name']} = {state_str}   [Target: {dev_target}]"
                         )
 
                 gen_block = "\n".join(gen_lines)
@@ -1096,21 +1102,46 @@ def _is_blank_transcript(text: str) -> bool:
 @app.route("/api/stt/inference", methods=["POST"])
 def stt_inference_proxy():
     """
-    Accepts a multipart audio file from the browser and forwards it
-    to the Whisper server's /inference endpoint.
+    Accepts a multipart audio file from the browser (WebM), converts it to 
+    16kHz mono WAV via FFmpeg, and forwards it to the Whisper server.
     Returns the Whisper JSON response { text: "...", ...} to the browser.
     """
     import requests as _req
+    import tempfile
+    import subprocess
+    import os
     try:
         f = request.files.get("file")
         if not f:
             return jsonify({"error": "No audio file"}), 400
+        
         audio_bytes = f.read()
-        filename = f.filename or "recording.webm"
-        mime = f.content_type or "audio/webm"
+        
+        # Convert WebM to 16kHz Mono WAV (required by whisper.cpp)
+        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp_in:
+            tmp_in.write(audio_bytes)
+            in_file = tmp_in.name
+            
+        out_file = in_file + ".wav"
+        try:
+            # -y = overwrite, -ar 16000 = sample rate, -ac 1 = mono
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", in_file, "-ar", "16000", "-ac", "1", out_file],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True
+            )
+            with open(out_file, "rb") as wf:
+                wav_bytes = wf.read()
+        except subprocess.CalledProcessError:
+            return jsonify({"error": "Failed to convert audio via ffmpeg"}), 500
+        finally:
+            if os.path.exists(in_file): os.remove(in_file)
+            if os.path.exists(out_file): os.remove(out_file)
+            
         resp = _req.post(
-            WHISPER_URL,   # already ends in /inference (was double-appended before)
-            files={"file": (filename, audio_bytes, mime)},
+            WHISPER_URL,
+            files={"file": ("recording.wav", wav_bytes, "audio/wav")},
             data=_whisper_data(),
             timeout=WHISPER_TIMEOUT,
         )
@@ -1379,9 +1410,68 @@ def handle_text_message(data):
 # ==========================================
 _chatbot_history: deque = deque(maxlen=10)
 
+# ── Build a live-enriched system prompt for chatbot handlers ──────────
+def _build_chatbot_system_prompt() -> str:
+    """Inject live HA devices + generic devices into RECEPTIONIST_PROMPT."""
+    prompt = RECEPTIONIST_PROMPT
+    try:
+        from nexus_assistant import ha_states as _ha_states, _entity_friendly
+        _devs = _ha_states()
+        if _devs:
+            ctrl = ("light", "switch", "fan", "input_boolean",
+                    "climate", "cover", "media_player", "lock")
+            lines = []
+            for s in _devs:
+                eid = s.get("entity_id", "")
+                if eid.split(".")[0] in ctrl:
+                    fname = _entity_friendly(s)
+                    state = s.get("state", "unknown")
+                    lines.append(f"- {eid} ({fname}) = {state}")
+            if lines:
+                prompt = (prompt
+                          + "\n\nLIVE Home Assistant devices you can control. "
+                          + "Use the EXACT entity_id in any [IOT:action|entity_id] tag:\n"
+                          + "\n".join(lines[:40]))
+    except Exception as _exc:
+        print(f"[Chatbot] HA device injection failed: {_exc}")
+    try:
+        if generic_device_mgr:
+            gen_devs = generic_device_mgr.list_devices()
+            if gen_devs:
+                gen_lines = []
+                for gd in gen_devs:
+                    dtype = gd.get('device_type', 'switch')
+                    room = gd.get('room', '')
+                    prefix = (room + ": ") if room else ""
+                    dev_target = gd['id']
+                    if dtype == 'multi_channel':
+                        ch_states = gd.get('state', {})
+                        for i, ch in enumerate(gd.get('channels', []), 1):
+                            ch_st = ch_states.get(str(i), 'unknown') \
+                                if isinstance(ch_states, dict) else 'unknown'
+                            gen_lines.append(
+                                f"  - {prefix}{ch} (ch{i}) = {ch_st} [Target: {dev_target}|{i}]")
+                    else:
+                        state_raw = gd.get('state', 'unknown')
+                        if isinstance(state_raw, bool):
+                            state_str = 'on' if state_raw else 'off'
+                        else:
+                            state_str = str(state_raw)
+                        gen_lines.append(
+                            f"  - {prefix}{gd['name']} = {state_str} [Target: {dev_target}]")
+                if gen_lines:
+                    prompt = (prompt
+                              + "\n\n--- Generic IP Devices (use [GENERIC:action|target] tags) ---\n"
+                              + "\n".join(gen_lines)
+                              + "\n--- End ---")
+    except Exception as _exc:
+        print(f"[Chatbot] Generic device injection failed: {_exc}")
+    return prompt
+
+
 @socketio.on("chatbot_message")
 def handle_chatbot_message(data):
-    """Receptionist chatbot — uses RECEPTIONIST_PROMPT, no vision, no IoT tags."""
+    """Chatbot handler — full ARIA persona with live HA device list injected."""
     text = data.get("text", "").strip()
     if not text:
         return
@@ -1392,7 +1482,8 @@ def handle_chatbot_message(data):
     try:
         # Build history for this chatbot session
         hist = list(_chatbot_history)[-LLM_HISTORY_TURNS:]
-        messages = [{"role": "system", "content": RECEPTIONIST_PROMPT}]
+        sys_prompt = _build_chatbot_system_prompt()   # includes live HA devices
+        messages = [{"role": "system", "content": sys_prompt}]
         messages += hist
         messages.append({"role": "user", "content": text})
 
@@ -1409,7 +1500,7 @@ def handle_chatbot_message(data):
         payload = {
             "messages":       sanitized,
             "temperature":    LLM_TEMPERATURE,
-            "max_tokens":     75,           # short replies only — reduces generation from ~60s to ~18s
+            "max_tokens":     200,           # enough for a sentence + IoT tag(s)
             "top_p":          LLM_TOP_P,
             "repeat_penalty": LLM_REPEAT_PENALTY,
         }
@@ -1431,7 +1522,10 @@ def handle_chatbot_message(data):
 
         print(f"[Chatbot] Q: {text[:60]!r}  A: {ai_text[:80]!r}")
 
-        # Generate TTS audio
+        # ── IoT tag interception — execute any [IOT:] / [GENERIC:] tags ──
+        ai_text, had_iot_tags = process_iot_tags(ai_text, user_text=text)
+
+        # Generate TTS audio (tags already stripped from ai_text)
         audio_b64 = generate_tts(ai_text)
 
         emit("ai_response", {
@@ -1529,7 +1623,8 @@ def handle_chatbot_voice(data):
 
         # Build LLM messages (reuse chatbot logic)
         hist = list(_chatbot_history)[-LLM_HISTORY_TURNS:]
-        messages = [{"role": "system", "content": RECEPTIONIST_PROMPT}]
+        sys_prompt = _build_chatbot_system_prompt()   # includes live HA devices
+        messages = [{"role": "system", "content": sys_prompt}]
         messages += hist
         messages.append({"role": "user", "content": transcript})
 
@@ -1546,7 +1641,7 @@ def handle_chatbot_voice(data):
         payload = {
             "messages":       sanitized,
             "temperature":    LLM_TEMPERATURE,
-            "max_tokens":     75,
+            "max_tokens":     200,           # enough for a sentence + IoT tag(s)
             "top_p":          LLM_TOP_P,
             "repeat_penalty": LLM_REPEAT_PENALTY,
         }
@@ -1568,7 +1663,10 @@ def handle_chatbot_voice(data):
 
         print(f"[Chatbot-Mic] Q: {transcript[:60]!r}  A: {ai_text[:80]!r}")
 
-        # Generate Piper TTS audio
+        # ── IoT tag interception — execute any [IOT:] / [GENERIC:] tags ──
+        ai_text, had_iot_tags = process_iot_tags(ai_text, user_text=transcript)
+
+        # Generate Piper TTS audio (tags already stripped from ai_text)
         audio_b64_out = generate_tts(ai_text)
 
         emit("ai_response", {
@@ -2624,7 +2722,7 @@ def _clear_mission():
     _mission_state["memory_context"] = ""
     socketio.emit("autonomous_mission", {"type": "explore", "target": None, "status": "idle"})
 
-# ── YOLO Detection Helper ─────────────────────────────────
+# ── YOLO Detection Helper ─────────────────────���───────────
 def _yolo_detect_in_frame(frame_b64, target_name):
     """Run YOLO on a base64 JPEG frame. Returns (found, x_center_ratio, area_ratio, class_name) or (False,0,0,'')."""
     if not _yolo_model or not _HAS_YOLO:
@@ -2740,7 +2838,7 @@ def _auto_nav_loop():
         cycle += 1
         mission = _mission_state["type"]
 
-        # ── Mission timeout check ──
+        # ─�� Mission timeout check ──
         if _mission_state["started_at"] > 0:
             elapsed = time.time() - _mission_state["started_at"]
             if elapsed > AUTO_NAV_MAX_MISSION_TIME:

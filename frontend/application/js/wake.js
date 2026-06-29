@@ -75,6 +75,7 @@
   }
 
   function start() {
+    (window.NexusDebug&&NexusDebug.log)&&NexusDebug.log('WMGR','start',{enabled:enabled,suspended:suspended,running:running,usingDevice:usingDevice()});
     if (!enabled || suspended || running) return;
     if (usingDevice()) { startDevice(); return; }
     var A = api();
@@ -96,6 +97,7 @@
   }
 
   function stop() {
+    (window.NexusDebug&&NexusDebug.log)&&NexusDebug.log('WMGR','stop');
     clearPoll();
     if (window.BrowserWake) { try { BrowserWake.stop(); } catch (e) {} }
     var A = api();
@@ -118,6 +120,7 @@
   }
 
   function onDetect() {
+    (window.NexusDebug&&NexusDebug.log)&&NexusDebug.log('WMGR','onDetect',{ui:localStorage.getItem('nexus_wake_ui')||'call'});
     clearPoll();
     running = true;
     setStatus('detected');
@@ -141,10 +144,12 @@
   }
 
   function rearm() {
+    (window.NexusDebug&&NexusDebug.log)&&NexusDebug.log('WMGR','rearm',{enabled:enabled,suspended:suspended});
     running = false;
     if (!enabled || suspended) { setStatus(enabled ? 'off' : 'off'); return; }
     // small delay so the OS fully releases the mic before re-listening
     setTimeout(function () {
+      (window.NexusDebug&&NexusDebug.log)&&NexusDebug.log('WMGR','rearm.fire',{enabled:enabled,suspended:suspended,running:running});
       if (enabled && !suspended && !running) { start(); }
     }, 600);
   }
@@ -158,11 +163,13 @@
   }
 
   function suspend() {
+    (window.NexusDebug&&NexusDebug.log)&&NexusDebug.log('WMGR','suspend');
     suspended = true;
     stop();
   }
   function resume() {
     if (!suspended) return;
+    (window.NexusDebug&&NexusDebug.log)&&NexusDebug.log('WMGR','resume',{enabled:enabled,running:running});
     suspended = false;
     if (enabled && !running) start();
   }

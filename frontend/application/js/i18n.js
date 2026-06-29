@@ -79,6 +79,8 @@
       'set.gridOverlay': 'Grid overlay',
       'set.filmGrain': 'Film grain',
       'set.reduceMotion': 'Reduce motion',
+      'set.liteMode': 'Lite mode (Jetson)',
+      'set.liteHint': 'Disables blur & ambient effects for smoother performance on low-power devices.',
       'set.language': 'Language',
       'set.langHint': 'Switches the whole interface and text direction (LTR / RTL).',
       'opt.lang.en': 'English',
@@ -181,6 +183,8 @@
       'set.gridOverlay': 'شبكة خلفية',
       'set.filmGrain': 'حبيبات الفيلم',
       'set.reduceMotion': 'تقليل الحركة',
+      'set.liteMode': 'الوضع الخفيف (جيتسون)',
+      'set.liteHint': 'يوقف التمويه والتأثيرات المحيطة لأداء أنعم على الأجهزة محدودة الطاقة.',
       'set.language': 'اللغة',
       'set.langHint': 'يغيّر الواجهة بالكامل واتجاه النص (يسار/يمين).',
       'opt.lang.en': 'English · الإنكليزية',
@@ -227,7 +231,7 @@
       /* settings — sound */
       'set.soundVolume': 'مستوى الصوت',
       'set.soundEffects': 'مؤثرات صوتية',
-      'set.hoverSounds': 'أصوات التمرير',
+      'set.hoverSounds': 'أصوات التمر��ر',
       'set.ambientMusic': 'موسيقى خلفية'
     }
   };

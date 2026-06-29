@@ -1,95 +1,108 @@
 # ARIA Nexus
 
-Local, offline-first AI assistant for a Smart Home & Delivery Robot Hub.
+> Local, offline-first AI assistant for a Smart Home & Delivery Robot Hub.
 
-- **Backend:** Flask + Flask-SocketIO (`backend/`)
-- **Frontend:** vanilla-JS single-page app, no build step (`frontend/application/`)
-- **Wake word:** local hot-word listener (`aarya_wakeword/`)
-- **LLM:** Qwen2.5-3B-Instruct (text-only) via llama.cpp
-- **STT:** whisper.cpp · **TTS:** Piper · **RAG:** ChromaDB
-- **IoT:** Home Assistant + generic LAN (Tasmota/ESP) devices
+## Overview
+ARIA (ARIA NEXUS) is an advanced, fully offline personal AI assistant engineered to run locally on an NVIDIA Jetson Orin Nano (Kubuntu/Linux). It provides seamless voice-based interaction, local smart home control, and intelligent autonomous features without relying on internet connectivity. The system is bilingual, supporting both English and Arabic (including Iraqi dialects).
 
-## Quick start
+## Goals
+- **Fully Offline:** Guarantee 100% functionality without internet dependency for privacy and reliability.
+- **Hardware Optimization:** Run efficiently on the edge using the NVIDIA Jetson Orin Nano.
+- **Fast Voice Pipeline:** Achieve low-latency conversational AI with a local Wake Word -> STT -> LLM -> TTS pipeline.
+- **Smart Hub:** Serve as the central command hub for local IoT devices and robot navigation.
 
-```bash
-cp .env.example .env        # then edit .env and fill in your secrets
-set -a; source .env; set +a # load env vars into the shell
-cd backend && bash run.bash # launches LLM + STT + TTS + Flask
-```
+## Features
+### Current Features
+- **Offline Voice Interaction:** Highly responsive text and voice chatbot using Qwen2.5 LLM.
+- **Bilingual Support:** Understands and speaks English and Arabic dynamically based on the user's input.
+- **Smart Home Integration:** Direct control of Home Assistant entities and generic LAN (Tasmota/ESP) devices.
+- **Local Knowledge Base (RAG):** Answers queries based on custom documents stored in `data_files/` using ChromaDB.
+- **Autonomous Vision (YOLOv8):** Local object detection for spatial memory and navigation capabilities.
+- **Web Command Center:** A beautiful, responsive Nexus Dashboard to monitor and control all services.
 
-Open the Flask host in a browser (default `http://<host>:5000`).
+### Planned / Roadmap
+- **Model Upgrades:** Download and switch to larger Whisper models (`ggml-medium` or `ggml-large-v3-turbo`) for improved Iraqi-dialect speech recognition.
+- **Autonomous Navigation Refinement:** Enhance the autonomous navigation loop using the existing YOLO object detection and spatial memory logic.
 
-## Configuration & secrets
+## Architecture
+ARIA is built using a modular architecture orchestrated by a central Flask application.
+- **Wake Word:** Local hot-word detection via `openWakeWord` configured for the wake word "Aria".
+- **Speech-to-Text (STT):** `whisper.cpp` running a multilingual GGML model.
+- **Language Model (LLM):** Text-only Qwen2.5-Instruct running via `llama.cpp` for maximum generation speed.
+- **Text-to-Speech (TTS):** `Piper TTS` (warm resident pool) for fast English and Arabic voice synthesis.
+- **Retrieval-Augmented Generation (RAG):** `ChromaDB` using `all-MiniLM-L6-v2` embeddings for local document search.
+- **Backend Orchestrator:** `Flask` + `Flask-SocketIO` proxying commands to local hardware and managing state.
 
-All secrets are read from the environment — nothing sensitive is stored in
-source. Copy `.env.example` to `.env`, fill it in, and load it before launch.
+## Tech Stack
+- **Backend:** Python 3, Flask, Flask-SocketIO.
+- **Frontend:** Vanilla JavaScript, HTML5, CSS3 (No build step required).
+- **Core AI Inference:** `llama.cpp`, `whisper.cpp`.
+- **Machine Learning / Audio:** `Piper`, `openWakeWord`, `ffmpeg`.
 
-| Variable | Required | Default | Purpose |
-|---|---|---|---|
-| `HA_TOKEN` | for IoT | _(empty)_ | Home Assistant long-lived access token |
-| `HA_URL` | no | `http://127.0.0.1:8123` | Home Assistant base URL |
-| `HA_TIMEOUT` | no | `10` | Home Assistant request timeout (seconds) |
-| `FLASK_SECRET_KEY` | recommended | random per boot | Flask session signing key |
-| `ALLOWED_ORIGINS` | no | localhost + detected LAN | CORS / Socket.IO allowlist (comma-separated origins). Never `*`. |
+## Requirements
+### Hardware
+- **Target:** NVIDIA Jetson Orin Nano (or equivalent local Linux machine).
+- **Memory:** Minimum 8GB unified memory recommended to hold LLM, STT, and TTS models in RAM/VRAM simultaneously.
 
-## Security notes
+### Software
+- **OS:** Kubuntu / Linux.
+- **Dependencies:** Python 3, `ffmpeg`, and basic C++ build tools (GCC/Make/CMake) to compile `llama.cpp` and `whisper.cpp`.
 
-- `backend/config.py` and `.env` are git-ignored — do not commit real tokens.
-- CORS / Socket.IO is restricted to localhost + detected LAN IPs by default;
-  override with `ALLOWED_ORIGINS` (e.g. when serving over HTTPS on a fixed IP).
-- If a token was ever committed to version control, **rotate it** (revoke it in
-  Home Assistant and issue a new one) — removing it from source is not enough.
+## Installation
 
-## Voice pipeline
+1. **Clone & Setup Environment:**
+   Ensure you have the repository downloaded and Python 3 installed.
+   ```bash
+   cd Jaston-project/backend
+   bash setup.sh   # Creates the virtual environment and installs Python dependencies
+   ```
 
-The full-duplex voice stack was reworked for reliability and responsiveness:
+2. **Download AI Models:**
+   ```bash
+   bash download_models.sh
+   ```
+   *(Ensure you have compiled the binaries in `vendor/llama.cpp` and `vendor/whisper.cpp` beforehand).*
 
-- **Warm Piper TTS** (`backend/piper_tts.py`): each voice's ONNX model is loaded
-  once and kept resident in RAM in a thread-safe pool. EN + AR are pre-warmed at
-  startup, so only the *first* use of a voice is slow; switching EN ↔ AR reuses
-  the already-warm model. Falls back to the legacy subprocess path if Piper is
-  unavailable. Benchmark it: `cd backend && python bench_tts.py`.
-- **Multilingual STT**: whisper.cpp now uses a multilingual model
-  (`ggml-medium` by default) with per-utterance language auto-detection, tuned
-  for Arabic (incl. Iraqi dialect) + English. Model + language are configurable
-  (`NEXUS_WHISPER_MODEL`, `NEXUS_WHISPER_LANGUAGE`).
-  > **TODO (next engineer): download a multilingual model.** The repo ships
-  > with `ggml-small.bin`, which is multilingual but weak on Iraqi-dialect
-  > Arabic. For stronger Arabic, download `ggml-medium.bin` (the default the
-  > code expects) or `ggml-large-v3-turbo.bin` into `models/`, then point
-  > `NEXUS_WHISPER_MODEL` at it. The `*.en` models are English-only — do NOT
-  > use them.
-  > ```bash
-  > # from vendor/whisper.cpp (downloads into ./models, then copy/symlink):
-  > bash ./models/download-ggml-model.sh medium       # -> ggml-medium.bin (~1.5 GB)
-  > # or the faster turbo model:
-  > bash ./models/download-ggml-model.sh large-v3-turbo
-  > # place the .bin in <project>/models/ and select it:
-  > export NEXUS_WHISPER_MODEL=ggml-medium.bin
-  > export NEXUS_WHISPER_LANGUAGE=auto   # or "ar" to force Arabic
-  > ```
-- **Endpointing / VAD** (`frontend/.../js/mic.js`): ambient noise-floor
-  calibration, pre-roll (recording starts before VAD arms so the first phoneme
-  is never clipped), a minimum-speech gate and a silence hangover so utterances
-  are never cut off mid-sentence. Tunable via `VAD_CONFIG` / `NEXUS_VAD_*`.
-- **Wake word** (`backend/nexus_wakeword.py`): config-driven threshold (the old
-  `0.1` caused constant false-accepts), plus a consecutive-frame debounce and a
-  post-trigger cooldown. Tunable via `NEXUS_WAKE_*`.
-- **Continuous conversation** (`frontend/.../js/pages/call.js`): press the
-  phone/mic button to start a hands-free session; the mic auto re-arms after
-  ARIA replies; **barge-in** (talking over ARIA stops playback and starts
-  listening); and a **mute** button hard-stops capture with a clear visual
-  state.
+3. **Configure Secrets:**
+   Duplicate the example environment file and add your Home Assistant token:
+   ```bash
+   cp .env.example .env
+   # Edit .env to add your HA_TOKEN and adjust URLs if necessary.
+   ```
 
-The frontend reads these tunables from the backend at boot via `GET /api/config`
-(`window.NEXUS_VAD`), so there is a single source of truth in `config.py` / env.
+## Usage
 
-## Tests
+ARIA is designed to be launched with a single unified bash script that spins up the LLM, STT, TTS, and the Flask server in separate terminals (or background processes).
 
 ```bash
-cd backend && python -m pytest -q     # or: python test_smoke.py  (no pytest needed)
-cd backend && python bench_tts.py     # TTS warm-up latency benchmark
+# From the project root:
+cd backend
+bash run.bash
 ```
 
-Includes a smoke test (`backend/test_smoke.py`) that builds the Flask app
-factory and checks that `/api/launcher/health` responds.
+Once the terminal outputs confirm that all services are online, open your browser and navigate to:
+```
+http://localhost:5000/nexus/
+```
+*(Or replace `localhost` with your Jetson's local IP address if accessing from a phone/tablet).*
+
+## Project Structure
+```text
+Jaston-project/
+├── aarya_wakeword/   # Wake word listener scripts and models
+├── backend/          # Core Python logic (Flask, RAG, IoT control, configs)
+│   ├── run.bash      # Main launcher script
+│   ├── config.py     # Centralized system configurations
+│   └── server.py     # Main Flask server entry point
+├── chroma_db/        # Persistent vector database for the Knowledge Base
+├── data_files/       # Drop text/PDF documents here for RAG indexing
+├── frontend/         # Vanilla JS/CSS/HTML for the Nexus Dashboard
+├── models/           # Downloaded weights (.gguf, .bin, .onnx, .pt)
+├── vendor/           # Submodules (llama.cpp, whisper.cpp, piper)
+└── README.md         # Project documentation (this file)
+```
+
+## Assumptions & Notes
+- **IoT Dependency:** It is assumed a local Home Assistant instance is running on the LAN (default `http://127.0.0.1:8123`) to handle smart home actions.
+- **Terminal Emulator:** The `run.bash` script attempts to open native terminal windows (gnome-terminal, xterm, etc.) to show live logs of AI models. If run headlessly, it falls back to background processes and writes to temporary log files.
+- **VRAM constraints:** The Flask server forces CPU-only execution to leave the entirety of the GPU memory available for `llama-server`.

@@ -1,0 +1,147 @@
+Home Automation & IoT Concepts Reference
+==========================================
+
+WHAT IS HOME AUTOMATION?
+-------------------------
+Home automation refers to using technology to control household appliances
+and systems automatically or remotely. It covers:
+  - Lighting control
+  - HVAC (heating, ventilation, air conditioning)
+  - Security systems
+  - Entertainment systems
+  - Kitchen appliances
+  - Energy monitoring
+
+WHAT IS HOME ASSISTANT?
+------------------------
+Home Assistant is an open-source home automation platform.
+It runs locally on your network (no cloud required).
+Supports 3000+ integrations with smart home devices.
+Accessible via web browser, mobile app, or API.
+Website: https://www.home-assistant.io
+
+Home Assistant key concepts:
+  Entity: A single controllable/observable thing (light, switch, sensor)
+  Device: A physical device that may have multiple entities
+  Area: A room or zone (kitchen, bedroom, living room)
+  Integration: A connection to a specific brand or protocol
+  Automation: A rule that triggers actions based on conditions
+  Scene: A saved state for multiple devices at once
+
+COMMON SMART HOME PROTOCOLS
+-----------------------------
+Z-Wave:
+  - Mesh network protocol for smart home devices
+  - Range: ~30 meters per hop
+  - Low power consumption
+  - Very reliable and interference-resistant
+
+Zigbee:
+  - Similar to Z-Wave but different frequency (2.4GHz)
+  - More devices available, often cheaper
+  - Also mesh network
+  - Compatible with many Home Assistant integrations
+
+Wi-Fi (ESP/Tasmota):
+  - Devices connect directly to home Wi-Fi
+  - Easy to control via HTTP API
+  - Higher power consumption than Zigbee/Z-Wave
+  - ARIA has native support for Tasmota devices
+
+Matter/Thread:
+  - New universal smart home standard
+  - Works across Apple, Google, Amazon, Samsung ecosystems
+  - Thread is the network layer (like Zigbee)
+  - Matter is the application protocol
+
+TASMOTA FIRMWARE
+-----------------
+Tasmota is open-source firmware for ESP8266/ESP32 chips.
+It turns cheap Wi-Fi relay boards into smart devices.
+Features:
+  - HTTP API for control (no cloud)
+  - MQTT support
+  - Web configuration interface
+  - Supports: relays, lights, dimmers, sensors, fans
+
+Tasmota device control via HTTP:
+  Turn ON:  GET http://DEVICE_IP/cm?cmnd=Power%20ON
+  Turn OFF: GET http://DEVICE_IP/cm?cmnd=Power%20OFF
+  Toggle:   GET http://DEVICE_IP/cm?cmnd=Power%20TOGGLE
+  Dimmer:   GET http://DEVICE_IP/cm?cmnd=Dimmer%2075
+
+ESP32 AND ESP8266
+------------------
+Popular microcontrollers for IoT projects.
+ESP8266: Single-core, 80MHz, 1MB RAM — good for simple devices
+ESP32: Dual-core, 240MHz, 520KB SRAM, Bluetooth + Wi-Fi — more capable
+
+Common ESP32 projects with ARIA:
+  - Single relay board (one switch)
+  - 4-channel relay board (four switches)
+  - PWM dimmer for lights
+  - Fan speed controller
+  - Temperature/humidity sensor (DHT22, SHT30)
+
+SMART SENSORS
+--------------
+Temperature sensor: Measures room temperature in Celsius/Fahrenheit
+Humidity sensor: Measures air moisture percentage (%)
+Motion sensor (PIR): Detects movement in a room
+Door sensor: Magnetic contact that detects open/closed state
+Smoke detector: Alerts when smoke is detected
+CO2 sensor: Measures carbon dioxide concentration (PPM)
+Lux sensor: Measures light level in a room
+Power meter: Measures electricity consumption (watts/kWh)
+
+ENERGY MANAGEMENT
+------------------
+Smart home systems can monitor and reduce energy usage:
+  - Smart plugs with energy monitoring show which devices use most power
+  - Automated schedules turn off lights/AC when rooms are empty
+  - Solar panel integration tracks production vs consumption
+  - ARIA can report current power usage if connected to energy sensors
+
+SECURITY CONSIDERATIONS
+------------------------
+For a secure smart home setup:
+  1. Keep all devices on a separate IoT VLAN/network segment
+  2. Use strong, unique passwords for each device
+  3. Disable remote access if not needed
+  4. Keep firmware updated on all devices
+  5. Use local-only integrations when possible (avoids cloud vulnerabilities)
+  6. ARIA runs locally — no external API keys needed for device control
+
+COMMON HOME ASSISTANT ENTITY TYPES
+------------------------------------
+light:          Controllable lights (on/off, brightness, color)
+switch:         Binary on/off switches and plugs
+fan:            Fans with speed control
+climate:        Thermostats and AC units
+sensor:         Read-only sensors (temperature, humidity, power)
+binary_sensor:  On/off sensors (motion, door, smoke)
+cover:          Blinds, curtains, garage doors
+media_player:   TVs, speakers, streaming devices
+camera:         IP cameras and video doorbells
+scene:          Saved states for multiple devices
+script:         Automated sequences of actions
+automation:     Trigger-based rules
+
+ARIA IOT COMMAND FORMAT
+------------------------
+When ARIA controls Home Assistant devices, it uses special tags in its response:
+
+Turn on:    [IOT:turn_on|domain.entity_id]
+Turn off:   [IOT:turn_off|domain.entity_id]
+Toggle:     [IOT:toggle|domain.entity_id]
+Set value:  [IOT:set_value|domain.entity_id|value]
+
+For generic (Tasmota) devices:
+Turn on:    [GENERIC:turn_on|generic.device_id]
+Turn off:   [GENERIC:turn_off|generic.device_id]
+Multi-ch:   [GENERIC:turn_on|generic.device_id|channel]
+Dimmer:     [GENERIC:dimmer|generic.device_id|75]
+Fan speed:  [GENERIC:fan|generic.device_id|2]
+
+These tags are automatically parsed by the server and sent to the appropriate API.
+The tags are hidden from the user — only the natural language response is shown.

@@ -177,13 +177,26 @@
     /* ---- STT (chatbot voice input) ---- */
     sttStart: function () { return sendJSON('/api/stt/start', 'POST'); },
     sttStop: function () { return sendJSON('/api/stt/stop', 'POST'); },
+    /* Pre-warm Whisper GPU pipeline with a silent request at startup.
+       The first REAL inference then has no cold-start penalty (2-5 s saved). */
+    sttWarmup: function () { return sendJSON('/api/stt/warmup', 'POST'); },
     /* Browser-recorded audio -> Whisper. This is the ONLY working speech
        path: send a webm/opus Blob as multipart to /api/stt/inference.
        (Do NOT set Content-Type here — the browser adds the boundary.) */
-    sttInference: function (blob) {
+    sttInference: function (blob, language) {
       var form = new FormData();
       form.append('file', blob, 'recording.webm');
       form.append('response_format', 'json');
+      // Language hint: explicit arg > saved 'nexus_stt_lang' override > the
+      // app's current UI language. Following the UI language (Arabic UI => "ar")
+      // is far more reliable on the small Whisper model than per-utterance
+      // auto-detect for a bilingual AR/EN user.
+      var lang = language;
+      try {
+        if (!lang) lang = localStorage.getItem('nexus_stt_lang') || '';
+        if (!lang) lang = (window.I18N && I18N.getLang) ? I18N.getLang() : (localStorage.getItem('nexus_lang') || '');
+      } catch (e) {}
+      if (lang) form.append('language', lang);
       return request('/api/stt/inference', { method: 'POST', body: form })
         .then(function (res) { return res.json(); });
     },

@@ -10,11 +10,16 @@ import threading
 
 _lock = threading.RLock()
 
+# Resolve project root relative to THIS file so paths work regardless of
+# which directory the Flask server was launched from.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_HERE)
+
 
 def _cfg():
     d = {
-        "data_dir": "data_files",
-        "chroma_dir": "chroma_db",
+        "data_dir": os.path.join(_PROJECT_ROOT, "data_files"),
+        "chroma_dir": os.path.join(_PROJECT_ROOT, "chroma_db"),
         "collection": "aria_docs",
         "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
         "chunk_size": 512,
@@ -50,9 +55,11 @@ def system_prompt():
     except Exception:
         pass
     return (
-        "You are ARIA, a warm bilingual (Arabic/English) receptionist assistant. "
-        "Reply concisely and helpfully. If the user writes in Iraqi Arabic, answer in Iraqi Arabic. "
-        "Use the provided knowledge-base context when it is relevant; if you do not know, say so honestly."
+        "You are ARIA, an advanced AI assistant for a Smart Home & Robotics Hub. "
+        "You ALWAYS respond in English by default. "
+        "Only switch to Arabic if the user writes to you in Arabic — and even then, keep technical terms in English. "
+        "Be helpful, friendly, and concise (1-3 sentences). "
+        "Use the provided knowledge-base context when relevant; if you do not know, say so honestly."
     )
 
 
@@ -66,16 +73,31 @@ def set_engine(engine):
     _engine_ref["engine"] = engine
 
 
-def _vectorstore():
+def _vectorstore(force_reload=False):
+    # Fast path: shared RAGEngine already has a live vectorstore — use it
+    # directly without touching HuggingFaceEmbeddings at all.
     eng = _engine_ref["engine"]
     if eng is not None and getattr(eng, "_vectorstore", None) is not None:
         return eng._vectorstore
-    if _VS["vs"] is not None:
+
+    # Second fast path: we already loaded it in this process — reuse.
+    # This is the KEY guard: if _VS["ok"] is True, the vectorstore is cached
+    # and we NEVER re-initialize HuggingFaceEmbeddings. Previously, if
+    # _engine_ref["engine"] was None (nexus_assistant imports RAGS before
+    # server calls set_engine), this fell through and re-loaded the
+    # 100-MB embedding model on EVERY assistant command.
+    if not force_reload and _VS["ok"] is True and _VS["vs"] is not None:
         return _VS["vs"]
-    if _VS["ok"] is False:
-        return None
+
+    # Skip permanently if chroma_db doesn't exist yet.
     cfg = _cfg()
+    chroma_dir = cfg["chroma_dir"]
+    if _VS["ok"] is False and not os.path.isdir(chroma_dir):
+        return None
+    if not os.path.isdir(chroma_dir):
+        return None
     try:
+        print("[RAG] Loading embedding model (first time only)...")
         try:
             from langchain_huggingface import HuggingFaceEmbeddings
         except Exception:
@@ -92,16 +114,21 @@ def _vectorstore():
         vs = Chroma(
             collection_name=cfg["collection"],
             embedding_function=emb,
-            persist_directory=cfg["chroma_dir"],
-            # COSINE to match normalized embeddings (see ingest.py / Issue 1) so
-            # relevance scores stay in [0,1] and aren't filtered out as L2.
+            persist_directory=chroma_dir,
             collection_metadata={"hnsw:space": "cosine"},
         )
         _VS["vs"] = vs
         _VS["emb"] = emb
         _VS["ok"] = True
+        n = 0
+        try:
+            n = vs._collection.count()
+        except Exception:
+            pass
+        print(f"[RAG] \u2705 Ready \u2014 {n} vectors in collection '{cfg['collection']}'")
         return vs
-    except Exception:
+    except Exception as exc:
+        print(f"[RAG-Store] vectorstore load error: {exc}")
         _VS["ok"] = False
         return None
 
@@ -261,7 +288,8 @@ def stats():
     cfg = _cfg()
     docs = []
     total = 0
-    vs = _vectorstore()
+    # Try engine ref first (avoids loading embeddings twice)
+    vs = _vectorstore(force_reload=(_VS["vs"] is None and _VS["ok"] is not True))
     if vs is not None:
         try:
             col = vs._collection
@@ -274,14 +302,15 @@ def stats():
                 total += c
                 size = 0
                 try:
-                    p = _data_path(src)
+                    p = os.path.join(cfg["data_dir"], src)
                     if os.path.exists(p):
                         size = os.path.getsize(p)
                 except Exception:
                     pass
                 docs.append({"filename": src, "chunks": c, "size_bytes": size, "modified": 0})
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"[RAG-Store] stats error: {exc}")
+            return {"error": str(exc), "document_count": 0, "chunk_count": 0, "documents": []}
     else:
         for name, d in _MEM.items():
             c = max(1, (len(d["text"]) + 511) // 512)

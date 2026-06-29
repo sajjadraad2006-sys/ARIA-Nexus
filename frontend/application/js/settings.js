@@ -26,10 +26,29 @@
     mono:    { label: 'Slate',   a: [210,16,70],  b: [212,22,56], c: [200,24,60] }
   };
 
+  /* Heuristic: is this a low-power device (e.g. Jetson Orin Nano)?
+     Used to default "Lite mode" ON the first time, before any user choice.
+     - ?lite / ?lite=1 in the URL forces it on; ?lite=0 forces it off.
+     - Few CPU cores or little RAM => treat as low-power.
+     The user can always override it from Settings afterwards. */
+  function detectLowPower() {
+    try {
+      var q = (location.search || '').toLowerCase();
+      if (/[?&]lite=0/.test(q)) return false;
+      if (/[?&]lite(=1)?(&|$)/.test(q)) return true;
+      var cores = navigator.hardwareConcurrency || 8;
+      var mem = navigator.deviceMemory || 8;   /* GB (rough, may be undefined) */
+      if (cores <= 6) return true;             /* Orin Nano = 6 cores */
+      if (mem <= 4) return true;
+    } catch (e) {}
+    return false;
+  }
+
   var DEFAULTS = {
     theme: 'aurora',
     hue: null,       /* when set (0-360), overrides preset with a custom accent */
     blur: 20,        /* glass backdrop blur in px */
+    lite: detectLowPower(), /* true = Jetson/lite mode: no blur, no ambient FX */
     scale: 100,      /* interface zoom in %  */
     depth: true,     /* ambient glow layer  */
     grid: true,      /* grid overlay        */
@@ -91,6 +110,7 @@
       b.classList.toggle('nx-no-grid', !state.grid);
       b.classList.toggle('nx-no-grain', !state.grain);
       b.classList.toggle('nx-reduce-motion', !!state.motion);
+      b.classList.toggle('nx-lite', !!state.lite);
     }
 
     if (window.NexusSound) {
@@ -149,6 +169,7 @@
     bindToggle('set-grid', 'grid');
     bindToggle('set-grain', 'grain');
     bindToggle('set-motion', 'motion');
+    bindToggle('set-lite', 'lite');
     bindRange('set-volume', function (v) { state.volume = v; });
     bindToggle('set-sound', 'sound');
     bindToggle('set-hover', 'hover');
@@ -287,6 +308,7 @@
     setChk('set-grid', state.grid);
     setChk('set-grain', state.grain);
     setChk('set-motion', state.motion);
+    setChk('set-lite', state.lite);
     setVal('set-volume', state.volume);
     setChk('set-sound', state.sound);
     setChk('set-hover', state.hover);

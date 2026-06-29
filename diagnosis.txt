@@ -1,0 +1,71 @@
+# ARIA NEXUS — Wake Word Diagnosis (Remote Device Stream)
+# Date: 2026-06-28
+
+## Root Cause 1: Broken resampling in frontend/application/js/wakelistener.js
+
+File: frontend/application/js/wakelistener.js
+Function: startStream() (lines 225-269)
+
+Line 238:  sInRate = sCtx.sampleRate || 48000;
+           -> Captures device's native rate (44100 Hz on many phones/Android).
+
+Line 243:  var ratio = sInRate / 16000;
+           -> e.g. 44100/16000 = 2.75625 (fractional step).
+
+Line 247:  for (var i = 0; i < input.length; i += ratio)
+           -> Loop increments by a fractional value.
+
+Line 248:  sResample.push(input[Math.floor(i)] || 0);
+           -> Three bugs:
+             (a) No anti-aliasing low-pass filter at 8 kHz
+                 -> energy above 8 kHz aliases into the passband,
+                   corrupting openWakeWord mel spectrogram features.
+             (b) Nearest-neighbor pick (Math.floor) instead of interpolation
+                 -> fraction step makes output sample positions jittery.
+             (c) No phase compensation for fractional decimation ratio.
+           -> Feeds openWakeWord a distorted/wrong-rate signal;
+             scores never cross WAKE_THRESHOLD (0.5).
+
+Fix:
+  Primary: Create dedicated 16 kHz AudioContext:
+           new AudioContext({ sampleRate: 16000 })
+           -> e.inputBuffer.getChannelData(0) is already 16 kHz.
+  Fallback: Linear interpolation + low-pass pre-filter.
+  Keep ScriptProcessorNode (AudioWorklet too complex for this).
+
+## Root Cause 2: Mic permission on remote devices
+
+File: frontend/application/js/wakelistener.js
+
+Line 227:  getUserMedia() fires on startStream() without user gesture.
+Line 264:  Catch sets wantOn=true + setDotState('error') but does not
+           ensure a subsequent click reliably restarts.
+
+File: frontend/application/js/wake.js
+Line 73:   BrowserWake.start() called from WakeManager.init() at app boot.
+Line 171:  init() is called automatically -> getUserMedia on page load
+           -> blocked by autoplay policy on remote HTTPS devices.
+
+Fix:
+  The dot click handler (wireDot, line 366) already calls startInternal().
+  Ensure click -> getUserMedia() works after permission grant.
+  The "error" dot state already shows "Tap to enable mic" - good.
+
+## What does NOT need changing
+
+- backend/config.py: WAKE_THRESHOLD (0.5), WAKE_TRIGGER_FRAMES (2),
+  WAKE_COOLDOWN (1.5) are already correct and env-overridable.
+- backend/nexus_wakeword.py: feed() correctly buffers and processes
+  1280-sample frames. No change needed.
+- backend/server.py + nexus_routes_additions.py: /api/wake/feed endpoint
+  correctly accepts raw PCM16 bytes. No change needed.
+- frontend/application/js/api.js: wakeFeed() sends raw ArrayBuffer with
+  correct Content-Type. No change needed.
+
+## Files to modify
+
+1. frontend/application/js/wakelistener.js (only file)
+   - Lines 229-236: Replace context creation with 16k AudioContext + fallback
+   - Lines 243-249: Replace resampling loop (16k path: drop entirely;
+     fallback: linear interpolation)
+   - Lines 264-268: Strengthen mic permission UX (ensure dot click restarts)

@@ -45,6 +45,15 @@ try:
 except Exception:
     SETTINGS = None
 
+try:
+    from nexus_debug import dlog, dtimer
+except Exception:
+    def dlog(*a, **kw): pass
+    class dtimer:
+        def __init__(self, *a, **kw): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
 
 def _llm_body(base):
     """Merge the user's saved LLM generation params (temperature/top_p/
@@ -195,6 +204,14 @@ def chat():
         choice = (payload.get("choices") or [{}])[0]
         reply = (choice.get("message") or {}).get("content", "")
         usage = payload.get("usage") or {}
+        # Safety net: execute any IoT tags the LLM emitted, even on this
+        # fallback route, so device control works regardless of entry point.
+        try:
+            import nexus_assistant as _ASSIST
+            executed = _ASSIST.execute_tags(reply)
+            reply = _ASSIST.strip_tags(reply)
+        except Exception:
+            pass
         return jsonify({
             "response": reply or "(empty response)",
             "context_used": usage.get("total_tokens", 0),
@@ -611,9 +628,28 @@ def tts_preview():
     if requests is None or not tts_url:
         return jsonify({"error": "TTS not configured"}), 503
     try:
-        resp = requests.post(tts_url.rstrip("/") + "/synthesize", json=data, timeout=30)
+        # connect_timeout=5s (fail fast if TTS server is down), read_timeout=30s
+        resp = requests.post(
+            tts_url.rstrip("/") + "/synthesize",
+            json=data,
+            timeout=(5, 30),
+        )
         resp.raise_for_status()
-        return Response(resp.content, mimetype=resp.headers.get("Content-Type", "audio/wav"))
+        audio_bytes = resp.content
+        mime = resp.headers.get("Content-Type", "audio/wav")
+        # Content-Length lets the browser know the full size upfront so it can
+        # begin buffering immediately instead of waiting for the connection to close.
+        headers = {
+            "Content-Length": str(len(audio_bytes)),
+            "Content-Type": mime,
+            "Cache-Control": "no-store",   # audio is one-time; don't cache
+            "X-Accel-Buffering": "no",     # disable nginx buffering if proxied
+        }
+        return Response(audio_bytes, status=200, headers=headers)
+    except requests.exceptions.ConnectionError:
+        return jsonify({"error": "TTS server not reachable at " + str(tts_url)}), 503
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "TTS server timed out (connect >5s or synthesis >30s)"}), 504
     except Exception as exc:
         return jsonify({"error": str(exc)}), 502
 
@@ -636,6 +672,16 @@ def _chunk_count(text):
     size = int(_RAG_SETTINGS.get("chunk_size", 512)) or 512
     return max(1, (len(text) + size - 1) // size)
 
+
+@nexus_bp.route("/api/rag/debug", methods=["GET"])
+def rag_debug():
+    if not RAGS:
+        return jsonify({"RAGS": None})
+    return jsonify({
+        "engine_ref_keys": list(RAGS._engine_ref.keys()),
+        "has_engine": RAGS._engine_ref.get("engine") is not None,
+        "vs_state": {k: type(v).__name__ for k, v in RAGS._VS.items() if k != "ok"} | {"ok": RAGS._VS.get("ok")},
+    })
 
 @nexus_bp.route("/api/rag/stats", methods=["GET"])
 def rag_stats():
@@ -717,6 +763,64 @@ def stt_stop():
     return jsonify({"ok": True, "text": ""})
 
 
+# Module-level flag: True once Whisper has been warmed (by server.py startup
+# OR by the first /api/stt/warmup call). Prevents the browser from sending a
+# duplicate warmup while the server's startup warmup is still running.
+_stt_warmed = False
+
+@nexus_bp.route("/api/stt/warmup", methods=["POST"])
+def stt_warmup():
+    """
+    Pre-warm Whisper if not already done by server.py at startup.
+    Returns immediately (ok=True, skipped=True) if already warmed.
+    """
+    global _stt_warmed
+    import struct, time as _t
+    stt_url = _service_url("stt")
+    if requests is None or not stt_url:
+        return jsonify({"ok": False, "reason": "STT not configured"}), 503
+
+    # server.py calls _whisper_warmup() on every start. If that already
+    # ran (cold_ms known from server log), skip the browser-triggered warmup
+    # to avoid hitting Whisper with two concurrent silence requests right
+    # when the user first opens the app.
+    if _stt_warmed:
+        return jsonify({"ok": True, "cold_ms": 0, "skipped": True,
+                        "reason": "already warmed at server startup"})
+
+    _stt_warmed = True   # mark immediately to prevent races from multiple tabs
+
+    SAMPLE_RATE, CHANNELS, BITS = 16000, 1, 16
+    num_samples = SAMPLE_RATE // 2
+    data_bytes  = num_samples * CHANNELS * (BITS // 8)
+    wav_header  = struct.pack(
+        "<4sI4s4sIHHIIHH4sI",
+        b"RIFF", 36 + data_bytes, b"WAVE",
+        b"fmt ", 16, 1, CHANNELS, SAMPLE_RATE,
+        SAMPLE_RATE * CHANNELS * (BITS // 8),
+        CHANNELS * (BITS // 8), BITS,
+        b"data", data_bytes,
+    )
+    silent_wav = wav_header + b"\x00" * data_bytes
+
+    t0 = _t.monotonic()
+    try:
+        resp = requests.post(
+            stt_url.rstrip("/") + "/inference",
+            files={"file": ("warmup.wav", silent_wav, "audio/wav")},
+            data={"response_format": "json", "language": "en", "temperature": "0"},
+            timeout=30,
+        )
+        cold_ms = int((_t.monotonic() - t0) * 1000)
+        print(f"[STT-Warmup] ✅ Whisper pre-warmed in {cold_ms} ms (HTTP {resp.status_code})")
+        return jsonify({"ok": True, "cold_ms": cold_ms})
+
+    except requests.exceptions.ConnectionError:
+        return jsonify({"ok": False, "reason": "Whisper not reachable"}), 503
+    except Exception as exc:
+        return jsonify({"ok": False, "reason": str(exc)}), 500
+
+
 @nexus_bp.route("/api/stt/inference", methods=["POST"])
 def nexus_stt_inference_proxy():
     """
@@ -741,6 +845,8 @@ def nexus_stt_inference_proxy():
     if not audio_bytes:
         return jsonify({"error": "Empty audio file"}), 400
 
+    dlog("STT", "recv", in_bytes=len(audio_bytes))
+
     # --- ffmpeg: webm/ogg/any → 16 kHz mono WAV (what whisper.cpp needs) ---
     raw_tmp = tempfile.NamedTemporaryFile(suffix=".webm", delete=False)
     wav_tmp = tempfile.NamedTemporaryFile(suffix=".wav",  delete=False)
@@ -751,23 +857,81 @@ def nexus_stt_inference_proxy():
         with open(raw_path, "wb") as fh:
             fh.write(audio_bytes)
 
-        result = subprocess.run(
-            ["ffmpeg", "-y", "-i", raw_path,
-             "-ar", "16000", "-ac", "1",
-             "-acodec", "pcm_s16le", "-f", "wav", wav_path],
-            capture_output=True, timeout=15,
-        )
+        # ffmpeg: webm/ogg/any → 16 kHz mono PCM WAV (clean conversion, no filters)
+        with dtimer("STT", "ffmpeg", in_bytes=len(audio_bytes)):
+            result = subprocess.run(
+                ["ffmpeg", "-y", "-i", raw_path,
+                 "-ar", "16000", "-ac", "1",
+                 "-acodec", "pcm_s16le", "-f", "wav", wav_path],
+                capture_output=True, timeout=15,
+            )
+
         if result.returncode != 0:
             err_msg = result.stderr.decode("utf-8", "ignore")[-300:]
+            dlog("STT", "ffmpeg.fail", rc=result.returncode)
             return jsonify({"error": "ffmpeg conversion failed: " + err_msg}), 500
 
         with open(wav_path, "rb") as wf:
             wav_bytes = wf.read()
 
-        # Minimum size gate: < 0.5 s of audio = skip transcription
-        if len(wav_bytes) < 16000:
+        # Minimum size gate: < 0.25 s of real audio → skip Whisper.
+        # 16 kHz · mono · int16 = 32000 bytes/s → 8000 B ≈ 0.25 s.
+        if len(wav_bytes) < 8000:
+            print(f"[STT-Proxy] ⚠ Dropped: WAV too small ({len(wav_bytes)}B) — likely pure silence")
+            dlog("STT", "drop.small", wav_bytes=len(wav_bytes))
             return jsonify({"text": ""}), 200
 
+        # --- Forward WAV to whisper.cpp /inference ---
+        _wlang, _wtemp = "auto", 0.0
+        try:
+            import config as _cfg
+            _wlang = getattr(_cfg, "WHISPER_LANGUAGE", "auto") or "auto"
+            _wtemp = getattr(_cfg, "WHISPER_TEMPERATURE", 0.0)
+        except Exception:
+            pass
+        # Per-request language hint from the web UI overrides the default.
+        try:
+            _req_lang = (_req.form.get("language") or "").strip()
+            if _req_lang:
+                _wlang = _req_lang
+        except Exception:
+            pass
+
+        _wav_dur = max(0, (len(wav_bytes) - 44)) / 32000.0
+        dlog("STT", "whisper.queue", wav_bytes=len(wav_bytes),
+             wav_dur=round(_wav_dur, 2), lang=_wlang)
+
+        with dtimer("STT", "whisper", wav_bytes=len(wav_bytes)):
+            resp = requests.post(
+                stt_url.rstrip("/") + "/inference",
+                files={"file": ("audio.wav", wav_bytes, "audio/wav")},
+                data={"response_format": "json", "language": _wlang,
+                      "temperature": str(_wtemp)},
+                timeout=30,
+            )
+        # ── Diagnostic logging ──
+        try:
+            _resp_body = resp.text[:500] if resp.ok else resp.text[:200]
+            print(f"[STT-Proxy] in={len(audio_bytes)}B → wav={len(wav_bytes)}B "
+                  f"({_wav_dur:.1f}s) lang={_wlang} → HTTP {resp.status_code}")
+            print(f"[STT-Proxy] Whisper response: {_resp_body}")
+            dlog("STT", "whisper.resp", http=resp.status_code,
+                 body=_resp_body[:120])
+        except Exception:
+            print(f"[STT-Proxy] in={len(audio_bytes)}B → wav={len(wav_bytes)}B "
+                  f"({_wav_dur:.1f}s) → HTTP {resp.status_code} (could not read body)")
+        if not resp.ok:
+            return jsonify({"error": "Whisper HTTP %d" % resp.status_code}), resp.status_code
+        return (resp.content, resp.status_code, {"Content-Type": "application/json"})
+
+    except requests.exceptions.ConnectionError:
+        print("[STT-Proxy] ✗ Whisper server not reachable at", stt_url)
+        dlog("STT", "whisper.unreachable")
+        return jsonify({"error": "Whisper server not running"}), 503
+    except Exception as exc:
+        print(f"[STT-Proxy] ✗ Exception: {exc}")
+        dlog("STT", "error", msg=str(exc))
+        return jsonify({"error": str(exc)}), 500
     finally:
         for p in (raw_path, wav_path):
             try:
@@ -776,34 +940,6 @@ def nexus_stt_inference_proxy():
             except OSError:
                 pass
 
-    # --- Forward WAV to whisper.cpp /inference ---
-    # CRITICAL: forward the language + temperature too. whisper.cpp's server
-    # defaults `language` to "en" when the field is absent, which forces every
-    # utterance to be transcribed as English (Issue 5: "STT only recognizes
-    # English"). "auto" lets it detect Arabic vs English per utterance. Single
-    # source of truth: config.WHISPER_LANGUAGE / WHISPER_TEMPERATURE.
-    _wlang, _wtemp = "auto", 0.0
-    try:
-        import config as _cfg
-        _wlang = getattr(_cfg, "WHISPER_LANGUAGE", "auto") or "auto"
-        _wtemp = getattr(_cfg, "WHISPER_TEMPERATURE", 0.0)
-    except Exception:
-        pass
-    try:
-        resp = requests.post(
-            stt_url.rstrip("/") + "/inference",
-            files={"file": ("audio.wav", wav_bytes, "audio/wav")},
-            data={"response_format": "json", "language": _wlang,
-                  "temperature": str(_wtemp)},
-            timeout=30,
-        )
-        if not resp.ok:
-            return jsonify({"error": "Whisper HTTP %d" % resp.status_code}), resp.status_code
-        return (resp.content, resp.status_code, {"Content-Type": "application/json"})
-    except requests.exceptions.ConnectionError:
-        return jsonify({"error": "Whisper server not running on port 8081"}), 503
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 500
 
 
 # =====================================================================
@@ -854,8 +990,13 @@ def wake_feed():
     try:
         result = WAKE.get_listener().feed(pcm)
     except Exception as exc:
+        dlog("WAKE", "feed.error", msg=str(exc), pcm_bytes=len(pcm))
         return jsonify({"available": False, "detected": False,
                         "error": str(exc)}), 500
+    if result.get("detected"):
+        dlog("WAKE", "feed.DETECTED", score=result.get("score"),
+             phrase=result.get("phrase"), threshold=result.get("threshold"),
+             pcm_bytes=len(pcm))
     return jsonify(result)
 
 
@@ -1009,6 +1150,12 @@ def register_nexus(app, rag_engine=None):
     """
     if rag_engine is not None and RAGS is not None:
         RAGS.set_engine(rag_engine)
+    # Expose /api/debug/* (client ingest, log viewer, clear)
+    try:
+        from nexus_debug import register_routes as _register_debug_routes
+        _register_debug_routes(nexus_bp)
+    except Exception as _dbg_err:
+        print(f"[debug] Could not register debug routes: {_dbg_err}")
     app.register_blueprint(nexus_bp)
 
     # Serve the standalone SPA — application/ lives in frontend/application/

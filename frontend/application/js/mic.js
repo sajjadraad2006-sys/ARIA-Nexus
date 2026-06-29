@@ -48,12 +48,21 @@
   var DEFAULTS = {
     vad: true,
     maxMs: 20000,
-    silenceMs: 900,   // trailing silence before auto-stop (lowered from 1500 to cut the reply lag)
+    silenceMs: 1100,  // trailing silence before auto-stop. Long enough to ride
+                      // over natural mid-sentence pauses so the LAST word is not
+                      // clipped, but short enough to keep replies snappy.
     minMs: 500,
     minSpeechMs: 300,
-    startThreshold: 0.030,
-    calibrateMs: 300,
-    noiseMult: 2.2
+    // Mobile mics output lower RMS levels than desktop mics. 0.022 (was 0.030)
+    // reliably captures normal-volume speech without triggering on room noise
+    // (the adaptive noiseMult floor still guards against that).
+    startThreshold: 0.022,
+    calibrateMs: 300,    // initial settle window before the first silence-stop
+    noiseMult: 2.2,
+    // Hard cap on the adaptive threshold. Lowered from 0.080 to 0.065 so a
+    // slightly noisy room can never push the bar so high that normal speech
+    // registers as silence on a mobile mic.
+    maxThreshold: 0.065
   };
 
   function cfg(opts, key) {
@@ -72,6 +81,7 @@
     var startThreshold = cfg(opts, 'startThreshold');
     var calibrateMs = cfg(opts, 'calibrateMs');
     var noiseMult = cfg(opts, 'noiseMult');
+    var maxThreshold = cfg(opts, 'maxThreshold');
     var onLevel = opts.onLevel, onState = opts.onState, onController = opts.onController;
 
     return new Promise(function (resolve, reject) {
@@ -81,7 +91,10 @@
       }
       // echoCancellation + noiseSuppression help a lot for barge-in / open mic.
       var constraints = { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } };
+      var _micT0 = Date.now();
       navigator.mediaDevices.getUserMedia(constraints).then(function (stream) {
+        var _micMs = Date.now() - _micT0;
+        (window.NexusDebug&&NexusDebug.log)&&NexusDebug.log('MIC','getUserMedia.done',{ms:_micMs});
         var chunks = [];
         var mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
         var rec;
@@ -89,27 +102,39 @@
         catch (e) { rec = new MediaRecorder(stream); }
         rec.ondataavailable = function (e) { if (e.data && e.data.size > 0) chunks.push(e.data); };
 
-        /* analyser for VAD + live level */
-        var AC = window.AudioContext || window.webkitAudioContext;
-        var ac = null, analyser = null, data = null, src = null;
-        if (AC) {
-          try {
-            ac = new AC();
-            if (ac.state === 'suspended') { try { ac.resume(); } catch (e) {} }
-            src = ac.createMediaStreamSource(stream);
-            analyser = ac.createAnalyser();
-            analyser.fftSize = 512;
-            data = new Uint8Array(analyser.fftSize);
-            src.connect(analyser);
-          } catch (e) { analyser = null; }
-        }
+        /* analyser for VAD + live level -- wired to the ONE shared AudioContext
+           (window.NexusAudio) so we never exhaust the browser's per-tab
+           AudioContext ceiling. Falls back to a private context only if the
+           shared bus is somehow unavailable. */
+        var analyser = null, data = null, src = null, ownCtx = null;
+        try {
+          if (window.NexusAudio && window.NexusAudio.available) {
+            var wired = window.NexusAudio.analyser(stream);
+            if (wired) { analyser = wired.analyser; src = wired.source; }
+          } else {
+            var AC = window.AudioContext || window.webkitAudioContext;
+            if (AC) {
+              ownCtx = new AC();
+              if (ownCtx.state === 'suspended') { try { ownCtx.resume(); } catch (e) {} }
+              src = ownCtx.createMediaStreamSource(stream);
+              analyser = ownCtx.createAnalyser();
+              analyser.fftSize = 512;
+              src.connect(analyser);
+            }
+          }
+          if (analyser) data = new Uint8Array(analyser.fftSize);
+        } catch (e) { analyser = null; }
+        if (!analyser) { try { console.warn('[mic] Web Audio analyser unavailable - VAD off, falling back to time cap'); } catch (e) {} }
 
         var started = Date.now(), lastVoice = started;
         var sawSpeech = false, speechMs = 0, lastTick = started;
         var raf = null, stopped = false, settled = false;
-        // Noise-floor calibration state.
-        var calibrating = (calibrateMs > 0 && analyser);
-        var noiseSum = 0, noiseN = 0, speechThr = startThreshold;
+        var stopReason = 'maxlen', peakLvl = 0;
+        // Adaptive noise-floor VAD state. We follow the running MINIMUM level
+        // (true silence), not the mean, so speech in the first frames can never
+        // inflate the floor and lock out the rest of the utterance.
+        var warmupMs = (calibrateMs > 0 ? calibrateMs : 0);
+        var noiseFloor = null, speechThr = startThreshold;
 
         function rms() {
           if (!analyser) return 0;
@@ -120,8 +145,10 @@
         }
         function teardown() {
           if (raf) { cancelAnimationFrame(raf); raf = null; }
+          // Disconnect our source node, but NEVER close the shared AudioContext
+          // (every other surface reuses it). Only a private fallback is closed.
           try { if (src) src.disconnect(); } catch (e) {}
-          try { if (ac) ac.close(); } catch (e) {}
+          try { if (ownCtx) ownCtx.close(); } catch (e) {}
           try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
         }
         function stopNow() {
@@ -143,8 +170,22 @@
           teardown();
           if (settled) return;
           settled = true;
-          if (!chunks.length) { resolve(null); return; }
-          resolve(new Blob(chunks, { type: rec.mimeType || 'audio/webm' }));
+          var durMs = Date.now() - started;
+          if (!chunks.length) {
+            try { console.warn('[mic] capture produced NO audio chunks (dur ' + durMs + 'ms)'); } catch (e) {}
+            resolve(null); return;
+          }
+          var blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+          // One concise diagnostic line per capture so the full path
+          // (capture -> POST /api/stt/inference -> Whisper) is traceable.
+          try {
+            console.info('[mic] captured ' + blob.size + ' bytes in ' + durMs +
+              'ms | reason=' + stopReason + ' sawSpeech=' + sawSpeech +
+              ' speechMs=' + Math.round(speechMs) + ' peak=' + peakLvl.toFixed(3) +
+              ' thr=' + speechThr.toFixed(3));
+          } catch (e) {}
+          (window.NexusDebug&&NexusDebug.log)&&NexusDebug.log('MIC','capture.done',{bytes:blob.size,ms:durMs,reason:stopReason,sawSpeech:sawSpeech,speechMs:Math.round(speechMs),peak:+(peakLvl.toFixed(3)),thr:+(speechThr.toFixed(3))});
+          resolve(blob);
         };
 
         if (onController) { try { onController({ stop: stopNow, cancel: cancel }); } catch (e) {} }
@@ -152,42 +193,47 @@
         // PRE-ROLL: start recording immediately, BEFORE VAD arms, so the start
         // of speech is captured even while we are still calibrating noise.
         try { rec.start(200); } catch (e) { teardown(); reject(e); return; }
-        if (onState) { try { onState(calibrating ? 'calibrating' : 'listening'); } catch (e) {} }
+        if (onState) { try { onState('listening'); } catch (e) {} }
+        (window.NexusDebug&&NexusDebug.log)&&NexusDebug.log('MIC','capture.start',{vad:opts.vad!==false,maxMs:maxMs,silenceMs:silenceMs});
 
         function loop() {
           if (stopped) return;
           var now = Date.now();
           var dt = now - lastTick; lastTick = now;
           var lvl = rms();
+          if (lvl > peakLvl) peakLvl = lvl;
           if (onLevel) { try { onLevel(Math.min(1, lvl * 3.2)); } catch (e) {} }
 
-          // --- Phase 1: ambient noise-floor calibration ---
-          if (calibrating) {
-            noiseSum += lvl; noiseN++;
-            if ((now - started) >= calibrateMs) {
-              var floor = noiseN ? (noiseSum / noiseN) : 0;
-              speechThr = Math.max(startThreshold, floor * noiseMult);
-              calibrating = false;
-              if (onState) { try { onState('listening'); } catch (e) {} }
-            }
-            raf = requestAnimationFrame(loop);
-            return;
-          }
+          // --- Adaptive noise floor (immune to speech poisoning) ---
+          // Seed on the first frame, snap DOWN to any quieter frame (real
+          // silence), and creep UP only very slowly. Following the minimum means
+          // talking during the first 300ms can never raise the threshold and
+          // lock out the rest of the sentence -- the exact defect that made the
+          // mic 'go deaf after one turn'.
+          if (noiseFloor === null) { noiseFloor = lvl; }
+          else if (lvl < noiseFloor) { noiseFloor = lvl; }
+          else { noiseFloor = noiseFloor + (lvl - noiseFloor) * 0.0008; }
+          var dyn = noiseFloor * noiseMult;
+          if (dyn < startThreshold) dyn = startThreshold;
+          if (dyn > maxThreshold) dyn = maxThreshold;   // HARD safety cap
+          speechThr = dyn;
 
-          // --- Phase 2: voice activity detection ---
-          if (lvl >= speechThr) {
+          // --- Voice activity detection (active from the very first frame) ---
+          if (analyser && lvl >= speechThr) {
             sawSpeech = true;
             speechMs += dt;
             lastVoice = now;
           }
           var elapsed = now - started;
-          // Only end on silence once we have heard enough real speech AND the
-          // trailing silence + min-length conditions are all satisfied.
-          if (opts.vad !== false && sawSpeech && speechMs >= minSpeechMs &&
-              (now - lastVoice) >= silenceMs && elapsed >= minMs) {
-            stopNow(); return;
+
+          // Silence-stop only after the warm-up / min-length window; speech
+          // heard during warm-up still counts (pre-roll already records it).
+          var settleMs = (minMs > warmupMs ? minMs : warmupMs);
+          if (opts.vad !== false && analyser && sawSpeech && speechMs >= minSpeechMs &&
+              (now - lastVoice) >= silenceMs && elapsed >= settleMs) {
+            stopReason = 'silence'; stopNow(); return;
           }
-          if (elapsed >= maxMs) { stopNow(); return; }
+          if (elapsed >= maxMs) { stopReason = 'maxlen'; stopNow(); return; }
           raf = requestAnimationFrame(loop);
         }
         raf = requestAnimationFrame(loop);

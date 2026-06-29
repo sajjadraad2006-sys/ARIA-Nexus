@@ -208,6 +208,9 @@
   =============================================================== */
   function ensureAudioCtx() {
     if (audioCtx) return audioCtx;
+    // Reuse the ONE shared AudioContext (no per-page context leak, never hits
+    // the browser's per-tab AudioContext ceiling).
+    if (window.NexusAudio && window.NexusAudio.available) { audioCtx = window.NexusAudio.ctx(); return audioCtx; }
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     try { audioCtx = new AC(); } catch (e) { audioCtx = null; }
@@ -385,9 +388,19 @@
     return new Promise(function (resolve) {
       if (busy || recording) { resolve(); return; }
       resumeAudio();
+      // Free the mic so MicRecorder can capture without conflict
+      if (window.WakeManager) WakeManager.suspend();
       var turns = 0;
+      function finish() {
+        busy = false;
+        setState('idle');
+        // Re-arm the wake word listener so it detects "Aria" again
+        if (window.WakeManager) WakeManager.resume();
+        resolve();
+      }
       function oneTurn() {
         recording = true;
+        busy = true;
         setState('listening');
         setPill(turns === 0 ? 'Listening…' : 'Listening (follow-up)…');
         MicRecorder.capture({
@@ -398,18 +411,19 @@
           setState('thinking');
           return transcribeBlob(blob).then(function (text) {
             // Empty/blank transcript = you went quiet → end the conversation.
-            if (!text) { setState('idle'); resolve(); return; }
+            if (!text) { finish(); return; }
             addLine('user', text);
             return converse(text).then(function () {
               turns++;
-              if (turns >= MAX_TURNS || busy || recording) { resolve(); return; }
+              if (turns >= MAX_TURNS || busy || recording) { finish(); return; }
               oneTurn();   // keep the conversation going, no wake word needed
             });
           });
         }).catch(function () {
           faceCtrl = null; recording = false;
           toast('Could not start microphone', 'error');
-          setState('error'); resolve();
+          setState('error');
+          finish();
         });
       }
       oneTurn();

@@ -1,0 +1,83 @@
+ARIA Smart Home Device Control Guide
+=====================================
+
+CONTROLLING LIGHTS
+------------------
+To turn on a light, say:
+  "Turn on the living room light"
+  "شغّل ضوء الغرفة"
+  "Switch on bedroom light"
+
+To turn off:
+  "Turn off the kitchen light"
+  "أطفي الضوء"
+
+To dim:
+  "Dim the light to 50%"
+  "اجعل الإضاءة 70 بالمية"
+
+CONTROLLING FANS
+----------------
+Fan has 3 speed levels:
+  Speed 1 = Low
+  Speed 2 = Medium
+  Speed 3 = High
+
+Commands:
+  "Turn on the fan at speed 2"
+  "شغّل المروحة على درجة 3"
+  "Turn off the blue fan"
+  "أوقف المروحة"
+
+CONTROLLING SWITCHES AND PLUGS
+-------------------------------
+Smart plugs can be turned on or off:
+  "Turn on the coffee maker"
+  "Turn off the TV plug"
+  "اطفي الطابعة"
+
+READING SENSORS
+---------------
+ARIA can read sensor values:
+  "What is the temperature?"
+  "شنو حرارة الغرفة؟"
+  "Is the door open?"
+  "ما درجة الرطوبة؟"
+
+MULTI-ROOM CONTROL
+------------------
+Specify the room name clearly:
+  "Turn off all lights in the kitchen"
+  "Turn on bedroom fan"
+  Rooms: living room, bedroom, kitchen, bathroom, garage
+
+SCHEDULES AND ROUTINES
+-----------------------
+ARIA does not have built-in scheduling yet.
+Use Home Assistant automations for scheduled tasks.
+ARIA can trigger scenes defined in Home Assistant.
+
+TROUBLESHOOTING DEVICE CONTROL
+--------------------------------
+If a device doesn't respond:
+1. Check Home Assistant is running (port 8123)
+2. Verify device is reachable on the network
+3. Check the device entity name in Home Assistant
+4. Try the exact entity_id (e.g., switch.bedroom_fan)
+5. Restart the Flask server if needed
+
+GENERIC TASMOTA DEVICES
+------------------------
+For devices not in Home Assistant:
+  - Device must be on the same LAN
+  - Requires IP address in generic_devices.json
+  - Supports: on, off, dimmer level, fan speed
+  - Multi-channel boards: specify channel number
+
+VOICE COMMAND TIPS
+------------------
+- Speak clearly and at normal pace
+- Arabic and English both work
+- Iraqi dialect is understood
+- Use device names as configured in Home Assistant
+- If recognition fails, try rephrasing the command

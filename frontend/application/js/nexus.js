@@ -16,7 +16,7 @@
     { id: 'chatbot',   label: 'ARIA Chatbot',    icon: 'chatbot',   desc: 'Conversational AI' },
     { id: 'face',      label: 'Robot Face',      icon: 'robot',     desc: 'Talking interactive face' },
     { id: 'iot',       label: 'IoT Control',     icon: 'home',      desc: 'Smart home devices' },
-    { id: 'assistant', label: 'Assistant',       icon: 'robot',     desc: 'Voice control \u00b7 memory \u00b7 routines' },
+    { id: 'assistant', label: 'Assistant',       icon: 'assistant', desc: 'Voice control \u00b7 memory \u00b7 routines' },
     { id: 'monitor',   label: 'System Monitor',  icon: 'monitor',   desc: 'CPU \u00b7 RAM \u00b7 GPU' },
     { id: 'tts',       label: 'TTS Studio',      icon: 'mic',       desc: 'Piper voice manager' },
     { id: 'knowledge', label: 'Knowledge Base',  icon: 'knowledge', desc: 'RAG documents' },
@@ -51,26 +51,29 @@
     if (enterBtn) enterBtn.addEventListener('click', enterFullscreen);
   }
 
+  /* Fullscreen API is not available on iPhone Safari (and some in-app
+     browsers). Detect support so we can fail gracefully — entering the
+     app directly instead of nagging the user with a warning toast. */
+  function fullscreenSupported() {
+    var el = document.documentElement;
+    return !!(document.fullscreenEnabled || document.webkitFullscreenEnabled ||
+              el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen);
+  }
+
   function enterFullscreen() {
     var el = document.documentElement;
     var req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-    if (req) {
-      try {
-        var p = req.call(el);
-        if (p && typeof p.then === 'function') {
-          p.then(exitSplash).catch(function () {
-            showToast('Fullscreen unavailable \u2014 continuing in window', 'warning');
-            exitSplash();
-          });
-        } else {
-          exitSplash();
-        }
-      } catch (e) {
-        showToast('Fullscreen unavailable \u2014 continuing in window', 'warning');
+    /* No real fullscreen support (e.g. iOS Safari): just open the app.
+       The CSS app-shell already fills the screen, so no warning needed. */
+    if (!req) { exitSplash(); return; }
+    try {
+      var p = req.call(el);
+      if (p && typeof p.then === 'function') {
+        p.then(exitSplash).catch(exitSplash);
+      } else {
         exitSplash();
       }
-    } else {
-      showToast('Fullscreen unavailable \u2014 continuing in window', 'warning');
+    } catch (e) {
       exitSplash();
     }
   }
@@ -118,15 +121,55 @@
       if (window.NexusSound) NexusSound.play('startup');
       if (window.WakeManager) WakeManager.init();
       showPage('launcher');
+
+      /* ── Whisper GPU warm-up ───────────────────────────────────────
+         Send a silent 0.5 s WAV to Whisper 2 s after the app opens.
+         This forces the GPU kernel JIT + model weight transfer to
+         happen at idle time rather than during the user's FIRST
+         voice recording, eliminating the "doesn't hear the first few
+         seconds" cold-start penalty. Best-effort: never blocks the UI.
+      ─────────────────────────────────────────────────────────────── */
+      setTimeout(function () {
+        if (window.API && API.sttWarmup) {
+          API.sttWarmup().then(function (r) {
+            try {
+              console.info('[STT] Warm-up done — cold_ms=' + (r && r.cold_ms != null ? r.cold_ms : '?'));
+            } catch (e) {}
+          }).catch(function () { /* Whisper not up yet — OK, first inference will warm it */ });
+        }
+      }, 2000);
     }, 650);
   }
 
   function wireFullscreenToggle() {
+    /* Hide the toggle entirely where fullscreen can't work (iPhone). */
+    if (!fullscreenSupported()) {
+      var fsBtn = document.getElementById('btn-fullscreen-toggle');
+      if (fsBtn) fsBtn.style.display = 'none';
+      return;
+    }
     document.addEventListener('fullscreenchange', function () {
       var btn = document.getElementById('btn-fullscreen-toggle');
       if (!btn) return;
       if (window.nxIcon) { btn.innerHTML = nxIcon('fullscreen', { size: 20 }); }
       btn.setAttribute('aria-label', document.fullscreenElement ? 'Exit fullscreen' : 'Enter fullscreen');
+
+      /* Force a synchronous reflow so that position:fixed / position:absolute
+         elements recalculate against the new viewport dimensions. This is
+         especially important on Android tablets and iPad where the
+         safe-area-inset values change when the status bar is hidden. */
+      var dash = document.getElementById('dashboard');
+      if (dash) {
+        dash.style.display = 'none';
+        // Reading offsetHeight forces the browser to flush layout
+        void dash.offsetHeight;
+        dash.style.display = 'flex';
+      }
+    });
+    /* Also handle webkit prefix for older Android WebViews */
+    document.addEventListener('webkitfullscreenchange', function () {
+      var dash = document.getElementById('dashboard');
+      if (dash) { dash.style.display = 'none'; void dash.offsetHeight; dash.style.display = 'flex'; }
     });
     var toggle = document.getElementById('btn-fullscreen-toggle');
     if (toggle) {

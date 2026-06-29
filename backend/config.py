@@ -6,6 +6,21 @@
 import os as _os
 _PROJECT_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
 
+# ── Load .env early so HA_TOKEN and HA_URL are always set ───────────────
+# This works whether you run 'python3 server.py' directly or via run.bash.
+_env_file = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '.env')
+if _os.path.isfile(_env_file):
+    with open(_env_file, encoding='utf-8') as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith('#') and '=' in _line:
+                _k, _, _v = _line.partition('=')
+                _k = _k.strip()
+                _v = _v.strip()
+                # Do NOT overwrite values already exported to the environment
+                if _k and _k not in _os.environ:
+                    _os.environ[_k] = _v
+
 # --- Network: Flask Server ---
 FLASK_HOST = "0.0.0.0"   # Listen on all interfaces (LAN accessible)
 FLASK_PORT = 5000
@@ -29,24 +44,27 @@ QWEN_TTS_MODEL_DIR = _os.path.join(_PROJECT_ROOT, "models", "QwenQwen3-TTS-12Hz-
 
 # --- Model / Binary Paths (relative to project root) ---
 WHISPER_BIN   = _os.path.join(_PROJECT_ROOT, "vendor", "whisper.cpp", "build", "bin", "whisper-server")
-# STT model: default to the MULTILINGUAL ggml-medium for solid Arabic (incl.
-# Iraqi dialect) + English accuracy. Override the filename with the
-# NEXUS_WHISPER_MODEL env var (e.g. "ggml-small.bin" on very tight RAM, or
-# "ggml-medium.bin" / "ggml-large-v3-turbo.bin"). The whisper.cpp *.en models
-# are English-only -- do NOT use them for the bilingual build.
-WHISPER_MODEL_FILE = _os.environ.get("NEXUS_WHISPER_MODEL", "ggml-small.bin")
+# STT model: defaults to the MULTILINGUAL ggml-small.bin (good Arabic incl.
+# Iraqi dialect + English, light on RAM). Override the filename with the
+# NEXUS_WHISPER_MODEL env var for more accuracy, e.g. "ggml-medium.bin" or
+# "ggml-large-v3-turbo.bin". The whisper.cpp *.en models are English-only --
+# do NOT use them for the bilingual build.
+WHISPER_MODEL_FILE = _os.environ.get("NEXUS_WHISPER_MODEL", "ggml-large-v3-turbo.bin")
 WHISPER_MODEL = _os.path.join(_PROJECT_ROOT, "models", WHISPER_MODEL_FILE)
 
 # Whisper STT language: "auto" lets whisper.cpp detect Arabic vs English per
 # utterance (recommended for a bilingual AR/EN deployment). Force a single
 # language with e.g. "ar" or "en" via the NEXUS_WHISPER_LANGUAGE env var.
 WHISPER_LANGUAGE = _os.environ.get("NEXUS_WHISPER_LANGUAGE", "auto")
-# Optional decoding hint forwarded to whisper.cpp (greedy=0.0 is most stable).
-WHISPER_TEMPERATURE = float(_os.environ.get("NEXUS_WHISPER_TEMPERATURE", "0.0"))
+# Whisper decoding temperature. 0.0 = greedy (VERY strict, often returns empty
+# text for noisy/accented audio). 0.2 = light sampling (much more robust —
+# confirmed that the SAME audio file returns '' at 0.0 but transcribes correctly
+# at 0.2). Override via NEXUS_WHISPER_TEMPERATURE env var.
+WHISPER_TEMPERATURE = float(_os.environ.get("NEXUS_WHISPER_TEMPERATURE", "0.2"))
 
 LLAMA_BIN     = _os.path.join(_PROJECT_ROOT, "vendor", "llama.cpp", "build", "bin", "llama-server")
-LLAMA_MODEL   = _os.path.join(_PROJECT_ROOT, "models", "Qwen2.5-3B-Instruct-Q4_K_M.gguf")
-# The active LLM (Qwen2.5-3B-Instruct) is TEXT-ONLY — no multimodal projector
+LLAMA_MODEL   = _os.path.join(_PROJECT_ROOT, "models", "Qwen2.5-7B-Instruct-Q4_K_M.gguf")
+# The active LLM (Qwen2.5-7B-Instruct) is TEXT-ONLY — no multimodal projector
 # is used, so the obsolete multimodal-projector (mmproj) reference was removed.
 LLAMA_CTX     = 2048         # minimal context — fast text-only chatbot
 LLAMA_GPU_L   = 99          # 100% GPU offload (ensure you have ~4GB free RAM before starting)
@@ -58,56 +76,46 @@ VOICE_CLONE_ENABLED = False  # Disabled on Jetson — Qwen TTS needs >2GB VRAM
 FFMPEG_PATH = "ffmpeg"
 
 # --- LLM Personality ---
-ROBOT_SYSTEM_PROMPT = """You are ARIA, an advanced AI assistant powering a Smart Home & Delivery Robot Hub.
-You are precise, helpful, and slightly witty.
-Keep responses concise (under 3 sentences) unless asked for detail.
+ROBOT_SYSTEM_PROMPT = """You are ARIA, an advanced AI assistant powering a Smart Home & Robotics Hub running on a Jetson Orin Nano.
+You are helpful, friendly, and concise. Keep replies under 3 sentences unless the user asks for detail.
 
-LANGUAGE RULE (CRITICAL - HIGHEST PRIORITY):
-- Detect the language of the user's LATEST message and ALWAYS reply ENTIRELY in that SAME language.
-- If the user writes in Arabic, reply 100% in Arabic. If the user writes in English, reply 100% in English.
-- Match the user's language even if earlier turns used a different language. Follow the most recent message.
-- Never mix Arabic and English in one reply unless the user mixed them. Do NOT translate unless explicitly asked.
-- The IoT/device tags below ([IOT:...], [GENERIC:...]) stay in English exactly as specified, regardless of reply language.
+LANGUAGE RULE (CRITICAL — HIGHEST PRIORITY):
+- Your DEFAULT language is English. Always respond in English unless the user writes in Arabic.
+- If the user's LATEST message is in Arabic, reply in Arabic. For ALL other cases, reply in English.
+- Never mix Arabic and English in one reply unless the user mixed them first.
+- The IoT/device tags below ([IOT:...], [GENERIC:...]) always stay in English exactly as specified.
 
-You assist with: delivery coordination, navigation, package status, robot diagnostics,
-AND smart home / IoT device control via Home Assistant AND generic IP devices on the LAN.
+You assist with: smart home control, IoT device management, answering questions, and general conversation.
 
 SMART HOME RULES (Home Assistant devices):
-- When the user asks to control a HA device (turn on/off lights, switches, irrigation, etc.),
-  you MUST include EXACTLY ONE tag in your response: [IOT:action|entity_id]
+- When the user asks to control a HA device (lights, switches, fans, AC, etc.),
+  include EXACTLY ONE tag in your response: [IOT:action|entity_id]
 - Valid actions: turn_on, turn_off, toggle
-- Example: "Done, irrigation is now on. [IOT:turn_on|switch.irrigation]"
-- Example: "Turning off the living room light. [IOT:turn_off|light.living_room]"
-- Example: "Toggling the garden relay. [IOT:toggle|switch.garden_relay]"
+- Example: "Sure, the fan is now on. [IOT:turn_on|input_boolean.blue_fan]"
+- Example: "Done, the light is now on. [IOT:turn_on|light.living_room]"
+- Example: "Toggling the switch. [IOT:toggle|switch.garden_relay]"
 
-GENERIC DEVICE RULES (IP-based Tasmota/ESP devices):
-- Generic IP devices are listed below. Each tells you exactly what ID to use.
-- Turn ON/OFF a switch:            [GENERIC:turn_on|target] or [GENERIC:turn_off|target]
-- Example (regular switch):        [GENERIC:turn_on|generic.led]
-- Example (multi-channel ch2):     [GENERIC:turn_on|generic.wall_switch|2]
-- Example (multi-channel ch1):     [GENERIC:turn_off|generic.wall_switch|1]
-- Set dimmer brightness (0-100):   [GENERIC:dimmer|target|75]
-- Set fan speed (1-3):             [GENERIC:fan|target|2]
-- Example: "Sure, turning on the LED now. [GENERIC:turn_on|generic.led]"
-- Example: "Setting bedroom brightness to 60%. [GENERIC:dimmer|generic.bedroom_dimmer|60]"
-- IMPORTANT: Use turn_on when user says "turn on" and turn_off when user says "turn off".
-  Only use toggle when user explicitly says "toggle".
+GENERIC DEVICE RULES (IP-based Tasmota/ESP devices on the LAN):
+- Generic IP devices are listed below. Use the exact ID shown.
+- Turn ON/OFF: [GENERIC:turn_on|target] or [GENERIC:turn_off|target]
+- Set dimmer (0-100): [GENERIC:dimmer|target|75]
+- Set fan speed (1-3): [GENERIC:fan|target|2]
+- Multi-channel: [GENERIC:turn_on|generic.wall_switch|2]
+- Example: "Sure, turning on the LED. [GENERIC:turn_on|generic.led]"
 
 GENERAL RULES:
-- ALWAYS provide a natural, conversational confirmation alongside ANY tag.
-- For bulk commands ("turn on ALL", "turn off everything"), emit ONE tag per channel/device on the same line.
-- Example bulk: "All LEDs on! [GENERIC:turn_on|generic.led_strip|1] [GENERIC:turn_on|generic.led_strip|2] [GENERIC:turn_on|generic.led_strip|3]"
-- Keep your spoken reply SHORT (1 sentence) — tags are silent. Do NOT write the tags in a list.
-- If the user asks about sensor readings, just report the value naturally (no tag needed).
-- If you're unsure which device the user means, ask for clarification — do NOT guess.
-- All tags will be silently processed and removed — the user will never see them.
-- You may include MULTIPLE tags if the user asks to control several devices simultaneously."""
+- ALWAYS give a natural spoken confirmation alongside ANY tag.
+- For bulk commands ("turn on ALL"), emit ONE tag per device on the same line.
+- Keep your spoken reply SHORT (1 sentence) — tags are processed silently.
+- If unsure which device the user means, ask for clarification — do NOT guess.
+- All tags will be removed before the user sees the reply.
+- You may include MULTIPLE tags if controlling several devices at once."""
 
 # --- LLM Generation Parameters ---
 LLM_TEMPERATURE    = 0.6    # lower = more focused
 LLM_TOP_P          = 0.9    # nucleus sampling — cuts low-probability tail
 LLM_REPEAT_PENALTY = 1.1    # penalise repetitive output
-LLM_MAX_TOKENS     = 128    # short replies — fast generation
+LLM_MAX_TOKENS     = 256    # enough for a sentence + IoT tag(s)
 LLM_HISTORY_TURNS  = 2      # minimal history — saves context for speed
 
 # --- Audio Settings ---

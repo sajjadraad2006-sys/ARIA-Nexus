@@ -27,8 +27,8 @@ download_if_missing() {
 
 HF="https://huggingface.co"
 
-# 1. LLM (Qwen2.5 3B)
-download_if_missing "$HF/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf" "Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+# 1. LLM (Qwen2.5 0.5B)
+download_if_missing "$HF/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf" "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
 
 # 2. Whisper STT models
 # The active model is configurable via NEXUS_WHISPER_MODEL (see config.py).

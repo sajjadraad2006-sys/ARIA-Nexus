@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#060d1f">
   <title>ARIA Nexus — Command Center</title>
 
@@ -25,6 +28,12 @@
   <link rel="stylesheet" href="css/rtl.css">
   <link rel="stylesheet" href="css/perf.css">
   <link rel="stylesheet" href="css/polish.css">
+
+  <!-- Mobile + tablet adaptation (must load last) -->
+  <link rel="stylesheet" href="css/responsive.css">
+
+  <!-- Lite / Jetson performance mode (body.nx-lite) -->
+  <link rel="stylesheet" href="css/perf-lite.css">
 </head>
 
 <body>
@@ -891,6 +900,8 @@
           <label class="set-toggle"><span data-i18n="set.gridOverlay">Grid overlay</span><input type="checkbox" id="set-grid"><span class="switch"></span></label>
           <label class="set-toggle"><span data-i18n="set.filmGrain">Film grain</span><input type="checkbox" id="set-grain"><span class="switch"></span></label>
           <label class="set-toggle"><span data-i18n="set.reduceMotion">Reduce motion</span><input type="checkbox" id="set-motion"><span class="switch"></span></label>
+          <label class="set-toggle"><span data-i18n="set.liteMode">Lite mode (Jetson)</span><input type="checkbox" id="set-lite"><span class="switch"></span></label>
+          <p class="set-hint" data-i18n="set.liteHint">Disables blur &amp; ambient effects for smoother performance on low-power devices.</p>
         </section>
       </div>
 
@@ -986,12 +997,14 @@
   </aside>
 
   <!-- SCRIPTS (order matters) -->
+  <script src="js/debug.js"></script>
   <script src="js/i18n.js"></script>
   <script src="js/icons.js"></script>
   <script src="js/vendor/nx-markdown.js"></script>
   <script src="js/vendor/nx-sound.js"></script>
   <script src="js/particles.js"></script>
   <script src="js/api.js"></script>
+  <script src="js/audiobus.js"></script>
   <script src="js/mic.js"></script>
   <script src="js/voice.js"></script>
   <script src="js/pages/chatbot.js"></script>

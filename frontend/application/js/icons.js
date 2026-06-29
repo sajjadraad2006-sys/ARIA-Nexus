@@ -52,7 +52,7 @@
     memory: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7.5 7V4M12 7V4M16.5 7V4"/><path d="M6 17v3M10 17v3M14 17v3M18 17v3"/>',
     disk: '<path d="M3.5 13 6 6.6A2 2 0 0 1 7.9 5.3h8.2A2 2 0 0 1 18 6.6L20.5 13"/><rect x="3" y="13" width="18" height="6" rx="2"/><path d="M7 16h.01M11 16h.01"/>',
     gpu: '<rect x="2.5" y="7" width="19" height="10" rx="2"/><circle cx="8" cy="12" r="2.4"/><circle cx="15" cy="12" r="2.4"/><path d="M19 7v10"/>',
-    robot: '<rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 8V4.5"/><circle cx="12" cy="3" r="1.3"/><circle cx="9" cy="13" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="13" r="1.3" fill="currentColor" stroke="none"/><path d="M9.5 16.8h5"/><path d="M2 12.5v3"/><path d="M22 12.5v3"/>',
+    robot: '<rect x="3.5" y="8" width="17" height="11.5" rx="3.5"/><path d="M12 8V5"/><circle cx="12" cy="3.5" r="1.3"/><circle cx="9" cy="13.2" r="1.6" fill="currentColor" stroke="none"/><circle cx="15" cy="13.2" r="1.6" fill="currentColor" stroke="none"/><path d="M9.5 16.6h5"/><path d="M2 12.5v3"/><path d="M22 12.5v3"/>',
     gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 12a7.4 7.4 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7.3 7.3 0 0 0-2-1.2l-.3-2.5H8.3L8 5.7a7.3 7.3 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5a7.5 7.5 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-1c.6.5 1.3.9 2 1.2l.3 2.5h4.4l.3-2.5c.7-.3 1.4-.7 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/>',
 
     /* ----- IoT device domains / types ----- */
@@ -72,7 +72,7 @@
     voice: '<path d="M4 10v4M8 6v12M12 3v18M16 6v12M20 10v4"/>',
 
     /* ----- NEW: assistant / AI / models ----- */
-    assistant: '<path d="M20 11.4a8 8 0 0 1-11.9 7.1L4 20l1.5-4.1A8 8 0 1 1 20 11.4z" stroke-linejoin="round"/><path d="M11.2 7.9l.95 2.45 2.45.95-2.45.95-.95 2.45-.95-2.45L7.8 11.3l2.45-.95z" fill="currentColor" stroke="none"/><path d="M16.4 12.9l.45 1.25 1.25.45-1.25.45-.45 1.25-.45-1.25-1.25-.45 1.25-.45z" fill="currentColor" stroke="none"/>',
+    assistant: '<path d="M12 2.6l1.9 5.05 5.05 1.9-5.05 1.9L12 16.5l-1.9-5.05L5.05 9.55l5.05-1.9z" fill="currentColor" stroke="none"/><path d="M18.4 13.6l.7 1.95 1.95.7-1.95.7-.7 1.95-.7-1.95-1.95-.7 1.95-.7z" fill="currentColor" stroke="none"/><path d="M5.2 15.2l.5 1.4 1.4.5-1.4.5-.5 1.4-.5-1.4-1.4-.5 1.4-.5z" fill="currentColor" stroke="none"/>',
     brain: '<path d="M12 5.5a3 3 0 0 0-5.9-.7A2.8 2.8 0 0 0 4 8a2.8 2.8 0 0 0 .8 4.6A3 3 0 0 0 6 17a3 3 0 0 0 6 .3z"/><path d="M12 5.5a3 3 0 0 1 5.9-.7A2.8 2.8 0 0 1 20 8a2.8 2.8 0 0 1-.8 4.6A3 3 0 0 1 18 17a3 3 0 0 1-6 .3z"/><path d="M12 5.5v12"/>',
     sparkles: '<path d="M12 3l1.5 3.8L17 8l-3.5 1.2L12 13l-1.5-3.8L7 8l3.5-1.2z"/><path d="M18 13l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
     model: '<path d="M12 3 3 7.5 12 12l9-4.5z"/><path d="M3 12l9 4.5L21 12"/><path d="M3 16.5 12 21l9-4.5"/>',

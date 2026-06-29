@@ -36,6 +36,11 @@ import threading
 import time
 
 try:
+    from nexus_debug import dlog
+except Exception:
+    def dlog(*a, **kw): pass
+
+try:
     import numpy as np
 except Exception:
     np = None
@@ -233,12 +238,21 @@ class WakeWordListener:
     def _ensure_model(self):
         if self._model is not None:
             return
-        kwargs = {}
-        if self._model_paths:
-            kwargs["wakeword_models"] = self._model_paths
-        elif self._builtin:
-            kwargs["wakeword_models"] = self._builtin
-        self._model = _OWW_MODEL(**kwargs)
+        paths = self._model_paths or self._builtin or []
+        try:
+            # openwakeword >= 0.5 uses 'wakeword_models'; 0.4.x uses 'wakeword_model_paths'.
+            # Try the newer kwarg first, fall back to the older one.
+            import inspect as _insp
+            sig = _insp.signature(_OWW_MODEL.__init__)
+            if "wakeword_models" in sig.parameters:
+                kw = "wakeword_models"
+            else:
+                kw = "wakeword_model_paths"
+            kwargs = {kw: paths} if paths else {}
+            self._model = _OWW_MODEL(**kwargs)
+        except Exception as exc:
+            self._last_error = str(exc)
+            self._model = None
 
     def _reset_model(self):
         try:
@@ -407,6 +421,8 @@ class WakeWordListener:
 
         if detected:
             self._score = best
+            dlog("WAKE", "model.DETECTED", score=round(best, 4),
+                 phrase=phrase, threshold=self._threshold)
             # reset so the next utterance starts clean after a trigger
             self._feed_buf = b""
             self._reset_model()

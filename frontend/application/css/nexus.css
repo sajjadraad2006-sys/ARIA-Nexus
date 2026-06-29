@@ -57,8 +57,8 @@ code, pre, .mono { font-family: 'Nexus Mono', 'JetBrains Mono', ui-monospace, 'L
 /* ===== Glassmorphism reusable ===== */
 .glass, .glass-form {
   background: var(--nexus-glass);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(var(--nx-glass-blur, 20px)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--nx-glass-blur, 20px)) saturate(180%);
   border: 1px solid var(--nexus-border);
   border-radius: var(--nexus-radius);
   box-shadow: 0 8px 32px hsla(0,0%,0%,0.35),
@@ -195,10 +195,12 @@ code, pre, .mono { font-family: 'Nexus Mono', 'JetBrains Mono', ui-monospace, 'L
    DASHBOARD LAYOUT
    ===================================================================== */
 #dashboard {
+  position: relative;  /* anchors .nexus-main's position:absolute correctly */
   display: flex;
   flex-direction: column;
   height: 100vh;
   width: 100vw;
+  overflow: hidden;    /* clip anything that leaks outside the shell */
 }
 .nexus-header {
   height: var(--nexus-header-h);
@@ -209,8 +211,8 @@ code, pre, .mono { font-family: 'Nexus Mono', 'JetBrains Mono', ui-monospace, 'L
   padding: 0 18px;
   border-bottom: 1px solid var(--nexus-border);
   background: hsla(222,40%,8%,0.7);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(var(--nx-glass-blur, 14px));
+  -webkit-backdrop-filter: blur(var(--nx-glass-blur, 14px));
   z-index: 50;
 }
 .header-left, .header-right { display: flex; align-items: center; gap: 12px; }
@@ -249,8 +251,8 @@ code, pre, .mono { font-family: 'Nexus Mono', 'JetBrains Mono', ui-monospace, 'L
   padding: 14px 10px;
   border-right: 1px solid var(--nexus-border);
   background: hsla(222,40%,8%,0.55);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(var(--nx-glass-blur, 14px));
+  -webkit-backdrop-filter: blur(var(--nx-glass-blur, 14px));
   overflow-y: auto;
   z-index: 40;
 }
@@ -439,8 +441,8 @@ code, pre, .mono { font-family: 'Nexus Mono', 'JetBrains Mono', ui-monospace, 'L
   padding: 20px;
   border-radius: var(--nexus-radius);
   background: var(--nexus-glass);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(var(--nx-glass-blur, 20px)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--nx-glass-blur, 20px)) saturate(180%);
   border: 1px solid var(--nexus-border);
   box-shadow: 0 8px 32px hsla(0,0%,0%,0.35), inset 0 1px 0 hsla(0,0%,100%,0.04);
   cursor: pointer;

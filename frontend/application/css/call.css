@@ -226,7 +226,10 @@
   background: var(--nexus-accent-1, #38bdf8);
   animation: wake-dot-pulse 2s ease-in-out infinite;
 }
-#wake-indicator.error  { background: #f59e0b; }
+#wake-indicator.error  {
+  background: #f59e0b;
+  animation: wake-dot-error-pulse 1.5s ease-in-out infinite;
+}
 #wake-indicator.hit    {
   background: #34d399;
   transform: scale(1.4);
@@ -236,4 +239,9 @@
   0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, .45); }
   50%      { box-shadow: 0 0 0 7px rgba(56, 189, 248, 0); }
 }
+@keyframes wake-dot-error-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, .5); }
+  50%      { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+}
 .nx-reduce-motion #wake-indicator.armed { animation: none; }
+.nx-reduce-motion #wake-indicator.error { animation: none; }
