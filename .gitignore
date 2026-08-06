@@ -30,3 +30,6 @@ node_modules/
 wget-log*
 *.bak
 *.prev
+
+# Local Python virtual environment
+.venv/

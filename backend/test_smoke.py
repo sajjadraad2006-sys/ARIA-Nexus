@@ -96,6 +96,33 @@ def test_config_has_multilingual_and_voice_keys():
     assert 0.0 < float(cfg.WAKE_THRESHOLD) <= 1.0
 
 
+
+def test_local_service_urls_are_valid():
+    """Local service URLs must be valid HTTP URLs without stray braces."""
+    try:
+        import config as cfg
+    except Exception as exc:
+        _skip(f"config import unavailable: {exc}")
+
+    from urllib.parse import urlparse
+
+    for name in ("WHISPER_URL", "LLAMA_URL", "TTS_URL"):
+        value = getattr(cfg, name)
+        parsed = urlparse(value)
+
+        assert "{" not in value and "}" not in value, (
+            f"{name} contains invalid braces: {value}"
+        )
+        assert parsed.scheme == "http", (
+            f"{name} must use http: {value}"
+        )
+        assert parsed.hostname == "127.0.0.1", (
+            f"{name} must remain local: {value}"
+        )
+        assert parsed.port is not None, (
+            f"{name} must include a port: {value}"
+        )
+
 # --------------------------------------------------------------------------
 # piper_tts pool - graceful degradation when Piper/models are absent
 # --------------------------------------------------------------------------
