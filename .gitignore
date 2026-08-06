@@ -33,3 +33,6 @@ wget-log*
 
 # Local Python virtual environment
 .venv/
+
+# Local ARIA runtime state and reports
+.aria/
